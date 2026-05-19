@@ -4,6 +4,7 @@
 #include "serial.h"
 #include "vga.h"
 #include "keyboard.h"
+#include "shell.h"
 #include "test.h"
 
 void kernel_main(unsigned int magic, unsigned int addr) {
@@ -23,13 +24,13 @@ void kernel_main(unsigned int magic, unsigned int addr) {
 
     run_tests();
 
-    // Enable keyboard
+    // Enable keyboard → shell
     keyboard_init();
     irq_register_handler(1, keyboard_handler);
     irq_unmask(1);
 
-    vga_puts("\nos1> ");
-    serial_puts("\nos1> ");
+    vga_putc('\n');
+    shell_init();
 
     for (;;) {}
 }

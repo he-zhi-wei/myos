@@ -1,8 +1,7 @@
 #include "keyboard.h"
 #include "port.h"
 #include "isr.h"
-#include "vga.h"
-#include "serial.h"
+#include "shell.h"
 
 static int shift = 0;
 
@@ -46,17 +45,14 @@ void keyboard_handler(registers_t *regs) {
     if (sc == 0x2A || sc == 0x36) { shift = 1; return; }
 
     // Enter
-    if (sc == 0x1C) { vga_putc('\n'); serial_putc('\n'); return; }
+    if (sc == 0x1C) { shell_input('\n'); return; }
 
     // Backspace
-    if (sc == 0x0E) { vga_putc('\b'); serial_puts("\b \b"); return; }
+    if (sc == 0x0E) { shell_input('\b'); return; }
 
     // Lookup ASCII
     char c = shift ? kbd_us_shift[sc] : kbd_us[sc];
-    if (c) {
-        vga_putc(c);
-        serial_putc(c);
-    }
+    if (c) shell_input(c);
 }
 
 void keyboard_init(void) {
