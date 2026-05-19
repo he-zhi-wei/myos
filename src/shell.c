@@ -2,6 +2,7 @@
 #include "vga.h"
 #include "serial.h"
 #include "port.h"
+#include "pmm.h"
 
 #define MAX_BUF  256
 #define MAX_ARGS 16
@@ -18,6 +19,7 @@ static void cmd_help(int argc, char **argv) {
     (void)argc; (void)argv;
     puts2("  clear    Clear the screen\n");
     puts2("  echo     Print text\n");
+    puts2("  meminfo  Show memory usage\n");
     puts2("  help     Show this help\n");
     puts2("  about    Show OS info\n");
     puts2("  shutdown Power off the system\n");
@@ -38,17 +40,33 @@ static void cmd_echo(int argc, char **argv) {
 
 static void cmd_about(int argc, char **argv) {
     (void)argc; (void)argv;
-    puts2("os1 v0.4.0\n");
+    puts2("os1 v0.5.0\n");
     puts2("A minimal 32-bit x86 OS kernel\n");
 }
 
 static void cmd_shutdown(int argc, char **argv) {
     (void)argc; (void)argv;
     puts2("Shutting down...\n");
-    // QEMU ACPI poweroff via PCI hotplug register
     outw(0x604, 0x2000);
-    // Fallback: halt if poweroff not supported
     for (;;) { __asm__ volatile ("hlt"); }
+}
+
+static void putd2(uint32_t n) {
+    if (n >= 10) putd2(n / 10);
+    putc2('0' + (n % 10));
+}
+
+static void cmd_meminfo(int argc, char **argv) {
+    (void)argc; (void)argv;
+    uint32_t total = pmm_total_pages();
+    uint32_t free  = pmm_free_pages();
+    uint32_t used  = total - free;
+    puts2("Total: ");  putd2(total * 4 / 1024); puts2(" MB (");
+    putd2(total);      puts2(" pages)\n");
+    puts2("Used : ");  putd2(used * 4 / 1024);  puts2(" MB (");
+    putd2(used);       puts2(" pages)\n");
+    puts2("Free : ");  putd2(free * 4 / 1024);  puts2(" MB (");
+    putd2(free);       puts2(" pages)\n");
 }
 
 // --- Command table ----------------------------------------------------
@@ -64,6 +82,7 @@ static cmd_t cmds[] = {
     {"clear",    "Clear the screen",        cmd_clear},
     {"echo",     "Print text",              cmd_echo},
     {"help",     "Show this help",          cmd_help},
+    {"meminfo",  "Show memory usage",       cmd_meminfo},
     {"about",    "Show OS info",            cmd_about},
     {"shutdown", "Power off the system",    cmd_shutdown},
 };

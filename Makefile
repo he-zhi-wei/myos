@@ -8,7 +8,7 @@ CFLAGS   := -m32 -c -ffreestanding -nostdlib -fno-pie -nostartfiles -nodefaultli
 LDFLAGS  := -m elf_i386
 
 SRCDIR := src
-OBJS   := boot.o kernel.o gdt.o idt.o isr.o irq.o serial.o interrupt.o test.o vga.o keyboard.o shell.o
+OBJS   := boot.o kernel.o gdt.o idt.o isr.o irq.o serial.o interrupt.o test.o vga.o keyboard.o shell.o pmm.o paging.o memory.o
 BIN    := kernel.bin
 ISO    := kernel.iso
 
@@ -50,6 +50,15 @@ keyboard.o: $(SRCDIR)/keyboard.c
 	$(CC) $(CFLAGS) $< -o $@
 
 shell.o: $(SRCDIR)/shell.c
+	$(CC) $(CFLAGS) $< -o $@
+
+pmm.o: $(SRCDIR)/pmm.c
+	$(CC) $(CFLAGS) $< -o $@
+
+paging.o: $(SRCDIR)/paging.c
+	$(CC) $(CFLAGS) $< -o $@
+
+memory.o: $(SRCDIR)/memory.c
 	$(CC) $(CFLAGS) $< -o $@
 
 $(BIN): $(OBJS) linker.ld

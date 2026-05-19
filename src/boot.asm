@@ -8,8 +8,8 @@ section .text
 global _start
 _start:
     mov esp, stack_top     ; set up 16KB stack
-    push eax               ; push multiboot magic (2nd param)
-    push ebx               ; push multiboot info ptr (1st param)
+    push ebx               ; multiboot info ptr → addr (2nd param)
+    push eax               ; multiboot magic → magic (1st param)
     extern kernel_main
     call kernel_main
     cli

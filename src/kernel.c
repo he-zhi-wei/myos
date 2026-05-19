@@ -6,16 +6,22 @@
 #include "keyboard.h"
 #include "shell.h"
 #include "test.h"
+#include "pmm.h"
+#include "paging.h"
+
+// Declared in memory.c
+void memory_init(uint32_t mb_addr);
 
 void kernel_main(unsigned int magic, unsigned int addr) {
     vga_clear();
     vga_puts("Hello, OS World!\n");
-
     serial_puts("Hello, OS World!\n");
 
     gdt_init();
     idt_init();
     irq_init();
+
+    memory_init(addr);
 
     __asm__ volatile ("sti");
 
@@ -24,7 +30,6 @@ void kernel_main(unsigned int magic, unsigned int addr) {
 
     run_tests();
 
-    // Enable keyboard → shell
     keyboard_init();
     irq_register_handler(1, keyboard_handler);
     irq_unmask(1);
