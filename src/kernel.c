@@ -1,43 +1,34 @@
-#define VGA_BUF   ((volatile char *)0xB8000)
-#define SER_PORT  0x2F8   // COM2 (COM1 at 0x3F8 is used by SeaBIOS)
+#include "gdt.h"
+#include "idt.h"
+#include "irq.h"
+#include "serial.h"
 
-static inline unsigned char inb(unsigned short port) {
-    unsigned char val;
-    __asm__ volatile ("inb %1, %0" : "=a"(val) : "Nd"(port));
-    return val;
-}
-
-static inline void outb(unsigned short port, unsigned char val) {
-    __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
-}
-
-static void serial_putc(char c) {
-    while ((inb(SER_PORT + 5) & 0x20) == 0) {}
-    outb(SER_PORT, c);
-}
-
-static void serial_puts(const char *s) {
-    for (; *s; s++) serial_putc(*s);
-}
+#define VGA_BUF ((volatile char *)0xB8000)
 
 void kernel_main(unsigned int magic, unsigned int addr) {
     const char *msg = "Hello, OS World!";
 
-    // Clear VGA screen (80x25, each char = 2 bytes)
+    // Clear VGA screen
     for (int i = 0; i < 80 * 25; i++) {
         VGA_BUF[i * 2] = ' ';
         VGA_BUF[i * 2 + 1] = 0x07;
     }
 
-    // Write to VGA
     for (int i = 0; msg[i] != '\0'; i++) {
         VGA_BUF[i * 2] = msg[i];
         VGA_BUF[i * 2 + 1] = 0x07;
     }
 
-    // Write to serial
     serial_puts(msg);
     serial_puts("\n");
+
+    gdt_init();
+    idt_init();
+    irq_init();
+
+    __asm__ volatile ("sti");
+
+    serial_puts("Interrupts enabled.\n");
 
     for (;;) {}
 }

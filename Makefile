@@ -3,12 +3,12 @@ CC  := gcc
 LD  := ld
 QEMU := qemu-system-i386
 
-ASFLAGS := -f elf32
-CFLAGS  := -m32 -c -ffreestanding -nostdlib -fno-pie -nostartfiles -nodefaultlibs
-LDFLAGS := -m elf_i386
+ASFLAGS  := -f elf32
+CFLAGS   := -m32 -c -ffreestanding -nostdlib -fno-pie -nostartfiles -nodefaultlibs -Iinclude
+LDFLAGS  := -m elf_i386
 
 SRCDIR := src
-OBJS   := boot.o kernel.o
+OBJS   := boot.o kernel.o gdt.o idt.o isr.o irq.o serial.o interrupt.o
 BIN    := kernel.bin
 ISO    := kernel.iso
 
@@ -19,7 +19,25 @@ all: $(BIN)
 boot.o: $(SRCDIR)/boot.asm
 	$(ASM) $(ASFLAGS) $< -o $@
 
+interrupt.o: $(SRCDIR)/interrupt.asm
+	$(ASM) $(ASFLAGS) $< -o $@
+
 kernel.o: $(SRCDIR)/kernel.c
+	$(CC) $(CFLAGS) $< -o $@
+
+gdt.o: $(SRCDIR)/gdt.c
+	$(CC) $(CFLAGS) $< -o $@
+
+idt.o: $(SRCDIR)/idt.c
+	$(CC) $(CFLAGS) $< -o $@
+
+isr.o: $(SRCDIR)/isr.c
+	$(CC) $(CFLAGS) $< -o $@
+
+irq.o: $(SRCDIR)/irq.c
+	$(CC) $(CFLAGS) $< -o $@
+
+serial.o: $(SRCDIR)/serial.c
 	$(CC) $(CFLAGS) $< -o $@
 
 $(BIN): $(OBJS) linker.ld
