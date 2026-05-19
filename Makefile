@@ -12,7 +12,7 @@ OBJS   := boot.o kernel.o gdt.o idt.o isr.o irq.o serial.o interrupt.o test.o vg
 BIN    := kernel.bin
 ISO    := kernel.iso
 
-.PHONY: all run test serial iso iso-run clean
+.PHONY: all run test serial iso iso-run kbdtest clean
 
 all: $(BIN)
 
@@ -75,6 +75,16 @@ iso: $(BIN)
 
 iso-run: $(ISO)
 	$(QEMU) -cdrom $(ISO)
+
+kbdtest: $(BIN)
+	@-rm -f serial.log
+	@( sleep 3; \
+	  printf 'sendkey a\nsendkey b\nsendkey c\nsendkey ret\n' ; \
+	  sleep 1 ) | \
+	timeout 8 $(QEMU) -kernel $(BIN) -display none \
+	  -serial null -serial file:serial.log -monitor stdio 2>/dev/null; true
+	@echo "=== Keyboard test ==="
+	@tail -3 serial.log
 
 clean:
 	rm -f $(OBJS) $(BIN) $(ISO)
