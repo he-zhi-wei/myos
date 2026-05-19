@@ -12,7 +12,7 @@ OBJS   := boot.o kernel.o
 BIN    := kernel.bin
 ISO    := kernel.iso
 
-.PHONY: all run test serial iso clean
+.PHONY: all run test serial iso iso-run clean
 
 all: $(BIN)
 
@@ -45,6 +45,9 @@ iso: $(BIN)
 	echo '}'                >> iso/boot/grub/grub.cfg
 	grub-mkrescue -o $(ISO) iso 2>/dev/null
 	rm -rf iso
+
+iso-run: $(ISO)
+	$(QEMU) -cdrom $(ISO)
 
 clean:
 	rm -f $(OBJS) $(BIN) $(ISO)
