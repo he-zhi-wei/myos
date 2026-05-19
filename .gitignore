@@ -3,3 +3,4 @@ kernel.bin
 *.iso
 *.log
 .claude/
+*.png
