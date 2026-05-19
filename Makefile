@@ -32,7 +32,7 @@ test: $(BIN)
 	$(QEMU) -kernel $(BIN) -nographic
 
 serial: $(BIN)
-	$(QEMU) -kernel $(BIN) -nographic -serial file:serial.log
+	$(QEMU) -kernel $(BIN) -display none -serial null -serial file:serial.log
 
 iso: $(BIN)
 	mkdir -p iso/boot/grub

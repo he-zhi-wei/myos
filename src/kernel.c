@@ -1,5 +1,5 @@
 #define VGA_BUF   ((volatile char *)0xB8000)
-#define SER_PORT  0x3F8
+#define SER_PORT  0x2F8   // COM2 (COM1 at 0x3F8 is used by SeaBIOS)
 
 static inline unsigned char inb(unsigned short port) {
     unsigned char val;
