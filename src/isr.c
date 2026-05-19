@@ -37,12 +37,16 @@ static const char *exceptions[] = {
 };
 
 void isr_handler(registers_t *regs) {
-    serial_puts("CPU Exception #");
-    // Print decimal int_no
+    serial_puts("  -> CPU Exception #");
     if (regs->int_no >= 10) serial_putc('0' + regs->int_no / 10);
     serial_putc('0' + regs->int_no % 10);
     serial_puts(": ");
     serial_puts(exceptions[regs->int_no]);
     serial_puts("\n");
-    for (;;) {}
+
+    // Halt on truly fatal exceptions; return for others
+    if (regs->int_no == 8 || regs->int_no == 18) {
+        serial_puts("  Fatal, halting.\n");
+        for (;;) {}
+    }
 }

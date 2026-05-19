@@ -8,7 +8,7 @@ CFLAGS   := -m32 -c -ffreestanding -nostdlib -fno-pie -nostartfiles -nodefaultli
 LDFLAGS  := -m elf_i386
 
 SRCDIR := src
-OBJS   := boot.o kernel.o gdt.o idt.o isr.o irq.o serial.o interrupt.o
+OBJS   := boot.o kernel.o gdt.o idt.o isr.o irq.o serial.o interrupt.o test.o
 BIN    := kernel.bin
 ISO    := kernel.iso
 
@@ -38,6 +38,9 @@ irq.o: $(SRCDIR)/irq.c
 	$(CC) $(CFLAGS) $< -o $@
 
 serial.o: $(SRCDIR)/serial.c
+	$(CC) $(CFLAGS) $< -o $@
+
+test.o: $(SRCDIR)/test.c
 	$(CC) $(CFLAGS) $< -o $@
 
 $(BIN): $(OBJS) linker.ld

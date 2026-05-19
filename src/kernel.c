@@ -2,6 +2,7 @@
 #include "idt.h"
 #include "irq.h"
 #include "serial.h"
+#include "test.h"
 
 #define VGA_BUF ((volatile char *)0xB8000)
 
@@ -29,6 +30,8 @@ void kernel_main(unsigned int magic, unsigned int addr) {
     __asm__ volatile ("sti");
 
     serial_puts("Interrupts enabled.\n");
+
+    run_tests();
 
     for (;;) {}
 }
