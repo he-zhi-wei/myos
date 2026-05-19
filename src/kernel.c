@@ -23,10 +23,16 @@ static void serial_puts(const char *s) {
 void kernel_main(unsigned int magic, unsigned int addr) {
     const char *msg = "Hello, OS World!";
 
+    // Clear VGA screen (80x25, each char = 2 bytes)
+    for (int i = 0; i < 80 * 25; i++) {
+        VGA_BUF[i * 2] = ' ';
+        VGA_BUF[i * 2 + 1] = 0x07;
+    }
+
     // Write to VGA
     for (int i = 0; msg[i] != '\0'; i++) {
         VGA_BUF[i * 2] = msg[i];
-        VGA_BUF[i * 2 + 1] = 0x07;   // light grey on black
+        VGA_BUF[i * 2 + 1] = 0x07;
     }
 
     // Write to serial

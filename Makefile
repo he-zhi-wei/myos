@@ -12,7 +12,7 @@ OBJS   := boot.o kernel.o
 BIN    := kernel.bin
 ISO    := kernel.iso
 
-.PHONY: all run iso clean
+.PHONY: all run test serial iso clean
 
 all: $(BIN)
 
@@ -30,6 +30,9 @@ run: $(BIN)
 
 test: $(BIN)
 	$(QEMU) -kernel $(BIN) -nographic
+
+serial: $(BIN)
+	$(QEMU) -kernel $(BIN) -nographic -serial file:serial.log
 
 iso: $(BIN)
 	mkdir -p iso/boot/grub
