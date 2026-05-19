@@ -1,4 +1,5 @@
 *.o
 kernel.bin
 *.iso
+*.log
 .claude/
