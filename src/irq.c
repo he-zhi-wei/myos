@@ -1,29 +1,36 @@
 #include "irq.h"
 #include "port.h"
-#include "isr.h"
+
+static irq_fn handlers[16];
 
 static void pic_remap(void) {
-    outb(0x20, 0x11);  // ICW1: init master
-    outb(0xA0, 0x11);  // ICW1: init slave
-    outb(0x21, 0x20);  // ICW2: master vector offset → 32
-    outb(0xA1, 0x28);  // ICW2: slave vector offset → 40
-    outb(0x21, 0x04);  // ICW3: master IRQ2 connected to slave
-    outb(0xA1, 0x02);  // ICW3: tell slave its cascade
-    outb(0x21, 0x01);  // ICW4: 8086 mode
-    outb(0xA1, 0x01);  // ICW4: 8086 mode
-
-    // Mask all IRQs for now (0 = enabled, 1 = masked)
-    outb(0x21, 0xFF);  // master: mask all
-    outb(0xA1, 0xFF);  // slave: mask all
+    outb(0x20, 0x11);  outb(0xA0, 0x11);
+    outb(0x21, 0x20);  outb(0xA1, 0x28);
+    outb(0x21, 0x04);  outb(0xA1, 0x02);
+    outb(0x21, 0x01);  outb(0xA1, 0x01);
+    outb(0x21, 0xFF);  outb(0xA1, 0xFF);
 }
 
 void irq_init(void) {
+    for (int i = 0; i < 16; i++) handlers[i] = 0;
     pic_remap();
 }
 
+void irq_register_handler(int irq, irq_fn handler) {
+    if (irq < 16) handlers[irq] = handler;
+}
+
+void irq_unmask(int irq) {
+    uint16_t port = 0x21;
+    if (irq >= 8) { port = 0xA1; irq -= 8; }
+    outb(port, inb(port) & ~(1 << irq));
+}
+
 void irq_handler(registers_t *regs) {
-    // Send EOI
-    if (regs->int_no >= 40)
-        outb(0xA0, 0x20);
+    if (regs->int_no >= 40) outb(0xA0, 0x20);
     outb(0x20, 0x20);
+
+    int i = regs->int_no - 32;
+    if (i < 16 && handlers[i])
+        handlers[i](regs);
 }

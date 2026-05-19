@@ -2,26 +2,15 @@
 #include "idt.h"
 #include "irq.h"
 #include "serial.h"
+#include "vga.h"
+#include "keyboard.h"
 #include "test.h"
 
-#define VGA_BUF ((volatile char *)0xB8000)
-
 void kernel_main(unsigned int magic, unsigned int addr) {
-    const char *msg = "Hello, OS World!";
+    vga_clear();
+    vga_puts("Hello, OS World!\n");
 
-    // Clear VGA screen
-    for (int i = 0; i < 80 * 25; i++) {
-        VGA_BUF[i * 2] = ' ';
-        VGA_BUF[i * 2 + 1] = 0x07;
-    }
-
-    for (int i = 0; msg[i] != '\0'; i++) {
-        VGA_BUF[i * 2] = msg[i];
-        VGA_BUF[i * 2 + 1] = 0x07;
-    }
-
-    serial_puts(msg);
-    serial_puts("\n");
+    serial_puts("Hello, OS World!\n");
 
     gdt_init();
     idt_init();
@@ -30,8 +19,17 @@ void kernel_main(unsigned int magic, unsigned int addr) {
     __asm__ volatile ("sti");
 
     serial_puts("Interrupts enabled.\n");
+    vga_puts("Interrupts enabled.\n");
 
     run_tests();
+
+    // Enable keyboard
+    keyboard_init();
+    irq_register_handler(1, keyboard_handler);
+    irq_unmask(1);
+
+    vga_puts("\nos1> ");
+    serial_puts("\nos1> ");
 
     for (;;) {}
 }

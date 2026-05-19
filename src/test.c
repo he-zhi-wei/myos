@@ -1,5 +1,6 @@
 #include "test.h"
 #include "serial.h"
+#include "vga.h"
 
 static int passed = 0;
 static int failed = 0;
@@ -85,4 +86,12 @@ void run_tests(void) {
     serial_puts("/");
     put_dec(passed + failed);
     serial_puts(" tests passed ======\n");
+
+    vga_puts("\nTests: ");
+    vga_putc('0' + passed / 10);
+    vga_putc('0' + passed % 10);
+    vga_puts("/");
+    vga_putc('0' + (passed + failed) / 10);
+    vga_putc('0' + (passed + failed) % 10);
+    vga_puts(" passed\n");
 }
