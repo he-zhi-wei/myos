@@ -1,10 +1,21 @@
 #include "vga.h"
+#include "port.h"
 
-#define VGA_BUF ((volatile char *)0xB8000)
+#define VGA_BUF   ((volatile char *)0xB8000)
+#define CRT_ADDR  0x3D4
+#define CRT_DATA  0x3D5
 
 static int cursor_x = 0;
 static int cursor_y = 0;
 static uint8_t attr = 0x07;
+
+static void vga_update_cursor(void) {
+    uint16_t pos = cursor_y * 80 + cursor_x;
+    outb(CRT_ADDR, 0x0F);
+    outb(CRT_DATA, pos & 0xFF);
+    outb(CRT_ADDR, 0x0E);
+    outb(CRT_DATA, (pos >> 8) & 0xFF);
+}
 
 void vga_set_color(uint8_t fg, uint8_t bg) {
     attr = (bg << 4) | (fg & 0x0F);
@@ -21,6 +32,7 @@ static void scroll(void) {
         VGA_BUF[(24 * 80 + x) * 2 + 1] = attr;
     }
     cursor_y = 24;
+    vga_update_cursor();
 }
 
 void vga_clear(void) {
@@ -30,6 +42,7 @@ void vga_clear(void) {
     }
     cursor_x = 0;
     cursor_y = 0;
+    vga_update_cursor();
 }
 
 void vga_putc(char c) {
@@ -48,6 +61,7 @@ void vga_putc(char c) {
         if (cursor_x >= 80) { cursor_x = 0; cursor_y++; }
     }
     if (cursor_y >= 25) scroll();
+    vga_update_cursor();
 }
 
 void vga_puts(const char *s) {
