@@ -1,6 +1,7 @@
 #include "shell.h"
 #include "vga.h"
 #include "serial.h"
+#include "port.h"
 
 #define MAX_BUF  256
 #define MAX_ARGS 16
@@ -15,10 +16,11 @@ static void puts2(const char *s) { vga_puts(s); serial_puts(s); }
 // --- Command handlers -------------------------------------------------
 static void cmd_help(int argc, char **argv) {
     (void)argc; (void)argv;
-    puts2("  clear   Clear the screen\n");
-    puts2("  echo    Print text\n");
-    puts2("  help    Show this help\n");
-    puts2("  about   Show OS info\n");
+    puts2("  clear    Clear the screen\n");
+    puts2("  echo     Print text\n");
+    puts2("  help     Show this help\n");
+    puts2("  about    Show OS info\n");
+    puts2("  shutdown Power off the system\n");
 }
 
 static void cmd_clear(int argc, char **argv) {
@@ -40,6 +42,15 @@ static void cmd_about(int argc, char **argv) {
     puts2("A minimal 32-bit x86 OS kernel\n");
 }
 
+static void cmd_shutdown(int argc, char **argv) {
+    (void)argc; (void)argv;
+    puts2("Shutting down...\n");
+    // QEMU ACPI poweroff via PCI hotplug register
+    outw(0x604, 0x2000);
+    // Fallback: halt if poweroff not supported
+    for (;;) { __asm__ volatile ("hlt"); }
+}
+
 // --- Command table ----------------------------------------------------
 typedef void (*cmd_fn)(int argc, char **argv);
 
@@ -50,10 +61,11 @@ typedef struct {
 } cmd_t;
 
 static cmd_t cmds[] = {
-    {"clear", "Clear the screen",        cmd_clear},
-    {"echo",  "Print text",              cmd_echo},
-    {"help",  "Show this help",          cmd_help},
-    {"about", "Show OS info",            cmd_about},
+    {"clear",    "Clear the screen",        cmd_clear},
+    {"echo",     "Print text",              cmd_echo},
+    {"help",     "Show this help",          cmd_help},
+    {"about",    "Show OS info",            cmd_about},
+    {"shutdown", "Power off the system",    cmd_shutdown},
 };
 #define NUM_CMDS (sizeof(cmds) / sizeof(cmd_t))
 
