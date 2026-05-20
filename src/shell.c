@@ -306,7 +306,7 @@ void shell_prompt(void) {
     puts2("os1> ");
 }
 
-void shell_input(char c) {
+void shell_input(int c) {
     // Up arrow: previous history
     if (c == 0x82) {
         if (hist_pos == -1) {

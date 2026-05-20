@@ -57,7 +57,7 @@ void keyboard_handler(registers_t *regs) {
     if (sc == 0x0E) { shell_input('\b'); return; }
 
     char c = shift ? kbd_us_shift[sc] : kbd_us[sc];
-    if (c) shell_input(c);
+    if (c) shell_input((unsigned char)c);
 }
 
 void keyboard_init(void) {
