@@ -5,10 +5,13 @@
 #include "vga.h"
 #include "keyboard.h"
 #include "shell.h"
-#include "test.h"
 #include "pmm.h"
 #include "paging.h"
 #include "timer.h"
+
+#ifdef TEST
+#include "test.h"
+#endif
 
 void memory_init(uint32_t mb_addr);
 
@@ -23,7 +26,6 @@ void kernel_main(unsigned int magic, unsigned int addr) {
 
     memory_init(addr);
 
-    // PIT timer at 100Hz
     timer_init(100);
     irq_register_handler(0, timer_handler);
     irq_unmask(0);
@@ -33,7 +35,9 @@ void kernel_main(unsigned int magic, unsigned int addr) {
     serial_puts("Interrupts enabled.\n");
     vga_puts("Interrupts enabled.\n");
 
-    run_tests();
+#ifdef TEST
+    run_all_tests();
+#endif
 
     keyboard_init();
     irq_register_handler(1, keyboard_handler);

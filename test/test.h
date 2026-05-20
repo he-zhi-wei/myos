@@ -14,3 +14,9 @@ static void test_result(int ok) {
     if (ok) { test_passed++; serial_puts("  -> PASS\n"); }
     else    { test_failed++; serial_puts("  -> FAIL\n"); }
 }
+
+void test_isr_run(void);
+void test_pmm_run(void);
+void test_pit_run(void);
+void test_cmd_run(void);
+void run_all_tests(void);
