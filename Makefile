@@ -14,7 +14,7 @@ TESTDIR := test
 CORE_OBJS := boot.o kernel.o gdt.o idt.o isr.o irq.o serial.o interrupt.o \
              vga.o keyboard.o shell.o pmm.o paging.o memory.o timer.o
 # Test objects (debug only)
-TEST_OBJS := test_main.o test_isr.o test_pmm.o test_pit.o test_cmd.o
+TEST_OBJS := test_test.o test_isr.o test_pmm.o test_pit.o test_cmd.o
 # Full debug build
 DBG_OBJS  := $(CORE_OBJS) $(TEST_OBJS)
 
@@ -56,7 +56,7 @@ irq.o: $(SRCDIR)/irq.c
 serial.o: $(SRCDIR)/serial.c
 	$(CC) $(CFLAGS) $< -o $@
 
-test_main.o: $(TESTDIR)/main.c
+test_test.o: $(TESTDIR)/test.c
 	$(CC) $(CFLAGS) $< -o $@
 
 test_isr.o: $(TESTDIR)/isr.c
