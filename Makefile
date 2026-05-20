@@ -21,16 +21,19 @@ DBG_OBJS  := $(CORE_OBJS) $(TEST_OBJS)
 BIN := kernel.bin
 ISO := kernel.iso
 
-.PHONY: all release run test serial iso iso-run kbdtest clean
+.PHONY: all check run test serial iso iso-run kbdtest clean
 
-OBJS := $(DBG_OBJS)
+OBJS := $(CORE_OBJS)
 
-all: CFLAGS += -DTEST -Itest
 all: $(BIN)
 
-release:
-	@$(MAKE) clean
-	@$(MAKE) all OBJS="$(CORE_OBJS)" CFLAGS="$(CFLAGS) -m32 -c -ffreestanding -nostdlib -fno-pie -nostartfiles -nodefaultlibs -Iinclude"
+check: CFLAGS  += -DTEST -Itest
+check: OBJS := $(DBG_OBJS)
+check: clean
+	@$(MAKE) all OBJS="$(DBG_OBJS)" CFLAGS="$(CFLAGS) -m32 -c -ffreestanding -nostdlib -fno-pie -nostartfiles -nodefaultlibs -Iinclude -DTEST -Itest"
+	@timeout 5 $(QEMU) -kernel $(BIN) -display none -serial null -serial file:serial.log 2>/dev/null; true
+	@echo "=== Test Results ==="
+	@tail -3 serial.log
 
 boot.o: $(SRCDIR)/boot.asm
 	$(ASM) $(ASFLAGS) $< -o $@
