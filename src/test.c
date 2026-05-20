@@ -2,6 +2,7 @@
 #include "serial.h"
 #include "vga.h"
 #include "pmm.h"
+#include "timer.h"
 
 static int passed = 0;
 static int failed = 0;
@@ -104,6 +105,22 @@ void run_tests(void) {
     pmm_free_page(p2);
     pmm_free_page(p3);
 
+    // Group 4: PIT — verify timer counter is advancing
+    serial_puts("\n--- Programmable Interval Timer ---\n");
+
+    serial_puts("[PIT] ticks > 0...");
+    uint32_t t1 = timer_ticks();
+    test_result(t1 > 0);  // PIT has been firing since IRQ0 unmasked
+
+    serial_puts("[PIT] ticks advancing...");
+    // Wait for a few ticks
+    for (volatile int d = 0; d < 500000; d++) {}
+    uint32_t t2 = timer_ticks();
+    test_result(t2 > t1);
+
+    serial_puts("[PIT] ticks/second ~100Hz...");
+    test_result(t2 < 2000);  // sanity: after 500k loop, shouldn't be years
+
     serial_puts("\n====== ");
     put_dec(passed);
     serial_puts("/");
@@ -111,10 +128,10 @@ void run_tests(void) {
     serial_puts(" tests passed ======\n");
 
     vga_puts("\nTests: ");
-    vga_putc('0' + passed / 10);
+    if (passed >= 10) vga_putc('0' + passed / 10);
     vga_putc('0' + passed % 10);
     vga_puts("/");
-    vga_putc('0' + (passed + failed) / 10);
+    if ((passed + failed) >= 10) vga_putc('0' + (passed + failed) / 10);
     vga_putc('0' + (passed + failed) % 10);
     vga_puts(" passed\n");
 }
