@@ -8,7 +8,8 @@ CFLAGS   := -m32 -c -ffreestanding -nostdlib -fno-pie -nostartfiles -nodefaultli
 LDFLAGS  := -m elf_i386
 
 SRCDIR := src
-OBJS   := boot.o kernel.o gdt.o idt.o isr.o irq.o serial.o interrupt.o test.o vga.o keyboard.o shell.o pmm.o paging.o memory.o timer.o
+TESTDIR := test
+OBJS   := boot.o kernel.o gdt.o idt.o isr.o irq.o serial.o interrupt.o test.o test_isr.o test_pmm.o test_pit.o test_cmd.o vga.o keyboard.o shell.o pmm.o paging.o memory.o timer.o
 BIN    := kernel.bin
 ISO    := kernel.iso
 
@@ -41,7 +42,19 @@ serial.o: $(SRCDIR)/serial.c
 	$(CC) $(CFLAGS) $< -o $@
 
 test.o: $(SRCDIR)/test.c
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) -I$(TESTDIR) $< -o $@
+
+test_isr.o: $(TESTDIR)/isr.c
+	$(CC) $(CFLAGS) -I$(TESTDIR) $< -o $@
+
+test_pmm.o: $(TESTDIR)/pmm.c
+	$(CC) $(CFLAGS) -I$(TESTDIR) $< -o $@
+
+test_pit.o: $(TESTDIR)/pit.c
+	$(CC) $(CFLAGS) -I$(TESTDIR) $< -o $@
+
+test_cmd.o: $(TESTDIR)/cmd.c
+	$(CC) $(CFLAGS) -I$(TESTDIR) $< -o $@
 
 vga.o: $(SRCDIR)/vga.c
 	$(CC) $(CFLAGS) $< -o $@
