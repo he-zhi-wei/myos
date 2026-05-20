@@ -9,7 +9,9 @@ void test_pit_run(void) {
     test_result(t1 > 0);
 
     serial_puts("[PIT] ticks advancing...");
-    for (volatile int d = 0; d < 500000; d++) {}
+    for (volatile int d = 0; d < 5000000; d++) {}
+    t1 = timer_ticks();
+    while (timer_ticks() == t1) { __asm__ volatile ("hlt"); }
     uint32_t t2 = timer_ticks();
     test_result(t2 > t1);
 

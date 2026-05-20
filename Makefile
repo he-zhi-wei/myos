@@ -4,99 +4,98 @@ LD  := ld
 QEMU := qemu-system-i386
 
 ASFLAGS  := -f elf32
-CFLAGS   := -m32 -c -ffreestanding -nostdlib -fno-pie -nostartfiles -nodefaultlibs -Iinclude
+BASE_CFLAGS := -m32 -c -ffreestanding -nostdlib -fno-pie -nostartfiles -nodefaultlibs -Iinclude
 LDFLAGS  := -m elf_i386
 
 SRCDIR  := src
 TESTDIR := test
 
-# Core objects (always compiled)
 CORE_OBJS := boot.o kernel.o gdt.o idt.o isr.o irq.o serial.o interrupt.o \
              vga.o keyboard.o shell.o pmm.o paging.o memory.o timer.o
-# Test objects (debug only)
 TEST_OBJS := test_test.o test_isr.o test_pmm.o test_pit.o test_cmd.o
-# Full debug build
-DBG_OBJS  := $(CORE_OBJS) $(TEST_OBJS)
 
 BIN := kernel.bin
 ISO := kernel.iso
 
-.PHONY: all check run test serial iso iso-run kbdtest clean
+# Default: no tests
+OBJS   := $(CORE_OBJS)
+CFLAGS := $(BASE_CFLAGS)
 
-OBJS := $(CORE_OBJS)
+.PHONY: all check run test serial iso iso-run kbdtest clean
 
 all: $(BIN)
 
-check: CFLAGS  += -DTEST -Itest
-check: OBJS := $(DBG_OBJS)
+check: OBJS   := $(CORE_OBJS) $(TEST_OBJS)
+check: CFLAGS := $(BASE_CFLAGS) -DTEST -Itest
 check: clean
-	@$(MAKE) all OBJS="$(DBG_OBJS)" CFLAGS="$(CFLAGS) -m32 -c -ffreestanding -nostdlib -fno-pie -nostartfiles -nodefaultlibs -Iinclude -DTEST -Itest"
+	@$(MAKE) --no-print-directory all OBJS="$(OBJS)" CFLAGS="$(CFLAGS)"
 	@timeout 5 $(QEMU) -kernel $(BIN) -display none -serial null -serial file:serial.log 2>/dev/null; true
 	@echo "=== Test Results ==="
 	@tail -3 serial.log
 
 boot.o: $(SRCDIR)/boot.asm
-	$(ASM) $(ASFLAGS) $< -o $@
+	@$(ASM) $(ASFLAGS) $< -o $@
 
 interrupt.o: $(SRCDIR)/interrupt.asm
-	$(ASM) $(ASFLAGS) $< -o $@
+	@$(ASM) $(ASFLAGS) $< -o $@
 
 kernel.o: $(SRCDIR)/kernel.c
-	$(CC) $(CFLAGS) $< -o $@
+	@$(CC) $(CFLAGS) $< -o $@
 
 gdt.o: $(SRCDIR)/gdt.c
-	$(CC) $(CFLAGS) $< -o $@
+	@$(CC) $(CFLAGS) $< -o $@
 
 idt.o: $(SRCDIR)/idt.c
-	$(CC) $(CFLAGS) $< -o $@
+	@$(CC) $(CFLAGS) $< -o $@
 
 isr.o: $(SRCDIR)/isr.c
-	$(CC) $(CFLAGS) $< -o $@
+	@$(CC) $(CFLAGS) $< -o $@
 
 irq.o: $(SRCDIR)/irq.c
-	$(CC) $(CFLAGS) $< -o $@
+	@$(CC) $(CFLAGS) $< -o $@
 
 serial.o: $(SRCDIR)/serial.c
-	$(CC) $(CFLAGS) $< -o $@
+	@$(CC) $(CFLAGS) $< -o $@
 
 test_test.o: $(TESTDIR)/test.c
-	$(CC) $(CFLAGS) $< -o $@
+	@$(CC) $(CFLAGS) -I$(TESTDIR) $< -o $@
 
 test_isr.o: $(TESTDIR)/isr.c
-	$(CC) $(CFLAGS) $< -o $@
+	@$(CC) $(CFLAGS) -I$(TESTDIR) $< -o $@
 
 test_pmm.o: $(TESTDIR)/pmm.c
-	$(CC) $(CFLAGS) $< -o $@
+	@$(CC) $(CFLAGS) -I$(TESTDIR) $< -o $@
 
 test_pit.o: $(TESTDIR)/pit.c
-	$(CC) $(CFLAGS) $< -o $@
+	@$(CC) $(CFLAGS) -I$(TESTDIR) $< -o $@
 
 test_cmd.o: $(TESTDIR)/cmd.c
-	$(CC) $(CFLAGS) $< -o $@
+	@$(CC) $(CFLAGS) -I$(TESTDIR) $< -o $@
 
 vga.o: $(SRCDIR)/vga.c
-	$(CC) $(CFLAGS) $< -o $@
+	@$(CC) $(CFLAGS) $< -o $@
 
 keyboard.o: $(SRCDIR)/keyboard.c
-	$(CC) $(CFLAGS) $< -o $@
+	@$(CC) $(CFLAGS) $< -o $@
 
 shell.o: $(SRCDIR)/shell.c
-	$(CC) $(CFLAGS) $< -o $@
+	@$(CC) $(CFLAGS) $< -o $@
 
 pmm.o: $(SRCDIR)/pmm.c
-	$(CC) $(CFLAGS) $< -o $@
+	@$(CC) $(CFLAGS) $< -o $@
 
 paging.o: $(SRCDIR)/paging.c
-	$(CC) $(CFLAGS) $< -o $@
+	@$(CC) $(CFLAGS) $< -o $@
 
 memory.o: $(SRCDIR)/memory.c
-	$(CC) $(CFLAGS) $< -o $@
+	@$(CC) $(CFLAGS) $< -o $@
 
 timer.o: $(SRCDIR)/timer.c
-	$(CC) $(CFLAGS) $< -o $@
+	@$(CC) $(CFLAGS) $< -o $@
 
 $(BIN): $(OBJS) linker.ld
-	$(LD) $(LDFLAGS) -T linker.ld -o $@ $(OBJS)
+	@$(LD) $(LDFLAGS) -T linker.ld -o $@ $(OBJS)
+	@echo "  BUILD   kernel.bin"
 
 run: $(BIN)
 	$(QEMU) -kernel $(BIN)
@@ -133,4 +132,4 @@ kbdtest: $(BIN)
 	@tail -3 serial.log
 
 clean:
-	rm -f $(CORE_OBJS) $(TEST_OBJS) $(BIN) $(ISO)
+	@rm -f $(CORE_OBJS) $(TEST_OBJS) $(BIN) $(ISO)
