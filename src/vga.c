@@ -67,3 +67,12 @@ void vga_putc(char c) {
 void vga_puts(const char *s) {
     for (; *s; s++) vga_putc(*s);
 }
+
+void vga_set_cursor(int x, int y) {
+    cursor_x = x;
+    cursor_y = y;
+    vga_update_cursor();
+}
+
+int vga_get_cursor_x(void) { return cursor_x; }
+int vga_get_cursor_y(void) { return cursor_y; }

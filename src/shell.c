@@ -280,15 +280,13 @@ static const char *hist_get(int n) {
 
 // Erase current line and redraw with buf content
 static void line_redraw(void) {
-    // Move to beginning of line: print \r, clear to end
-    vga_putc('\r');
+    int y = vga_get_cursor_y();
+    vga_set_cursor(0, y);
     vga_puts("os1> ");
     for (int i = 0; i < buf_len; i++) vga_putc(buf[i]);
-    // Clear any leftover chars from previous longer line
-    for (int i = buf_len; i < MAX_BUF && i < 80; i++) vga_putc(' ');
-    vga_putc('\r');
-    vga_puts("os1> ");
-    for (int i = 0; i < buf_len; i++) vga_putc(buf[i]);
+    // Clear rest of line
+    for (int i = buf_len + 5; i < 80; i++) vga_putc(' ');
+    vga_set_cursor(5 + buf_len, y);
 }
 
 static void hist_load(const char *s) {
