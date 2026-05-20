@@ -2,7 +2,7 @@
 #include "port.h"
 #include "isr.h"
 
-static uint32_t ticks = 0;
+static volatile uint32_t ticks = 0;
 static uint32_t freq  = 0;
 
 void timer_handler(registers_t *regs) {

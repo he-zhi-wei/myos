@@ -23,4 +23,12 @@ void test_cmd_run(void) {
     serial_puts("[CMD] hexdump VGA...");
     volatile char *vga = (volatile char *)0xB8000;
     test_result(vga[0] != 0);  // something is on screen
+
+    // Direct sleep test (bypass shell)
+    serial_puts("[CMD] sleep direct 50ms...");
+    uint32_t bt = timer_ticks();
+    uint32_t tg = bt + (50 * timer_freq() + 999) / 1000;
+    while (timer_ticks() < tg) { __asm__ volatile ("hlt"); }
+    uint32_t at2 = timer_ticks();
+    test_result(at2 >= tg);
 }

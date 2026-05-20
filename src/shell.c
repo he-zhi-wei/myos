@@ -117,6 +117,7 @@ static uint32_t parse_dec(const char *s) {
 static void cmd_sleep(int argc, char **argv) {
     if (argc < 2) { puts2("Usage: sleep <ms>\n"); return; }
     uint32_t ms = parse_dec(argv[1]);
+    if (ms == 0) { puts2("0ms\n"); return; }
     uint32_t target = timer_ticks() + (ms * timer_freq() + 999) / 1000;
     while (timer_ticks() < target) { __asm__ volatile ("hlt"); }
     putc2('\n');
