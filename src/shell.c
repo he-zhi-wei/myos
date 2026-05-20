@@ -110,7 +110,10 @@ static void cmd_date(int argc, char **argv) {
 
 static uint32_t parse_dec(const char *s) {
     uint32_t v = 0;
-    for (; *s; s++) v = v * 10 + (*s - '0');
+    for (; *s; s++) {
+        if (v > 429496729) break;  // v*10 would overflow uint32_t
+        v = v * 10 + (*s - '0');
+    }
     return v;
 }
 
@@ -128,6 +131,7 @@ static void cmd_bench(int argc, char **argv) {
     uint32_t n = parse_dec(argv[1]);
     if (n == 0) n = 1000000;
 
+    __asm__ volatile ("sti");  // enable IRQs during bench
     uint32_t t1 = timer_ticks();
     for (volatile uint32_t i = 0; i < n; i++) {}
     uint32_t t2 = timer_ticks();
@@ -135,7 +139,9 @@ static void cmd_bench(int argc, char **argv) {
     puts2("Loops: "); putd2(n); putc2('\n');
     puts2("Ticks: "); putd2(t2 - t1); putc2('\n');
     if (t2 > t1) {
-        puts2("Rate:  "); putd2(n * timer_freq() / (t2 - t1));
+        uint32_t d = t2 - t1;
+        uint32_t rate = (n / d) * timer_freq() + ((n % d) * timer_freq()) / d;
+        puts2("Rate:  "); putd2(rate);
         puts2(" ops/s\n");
     } else {
         puts2("Rate:  >"); putd2(n * timer_freq());
