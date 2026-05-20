@@ -17,6 +17,9 @@ static int  buf_len = 0;
 static char history[HIST_SIZE][MAX_BUF];
 static int  hist_idx = 0;
 static int  hist_cnt = 0;
+static int  hist_pos = -1;      // -1 = not navigating
+static char saved_buf[MAX_BUF]; // saved line when entering history
+static int  saved_len = 0;
 
 // Helpers
 static void putc2(char c)  { vga_putc(c);  serial_putc(c); }
@@ -267,9 +270,38 @@ static void exec_cmd(char *input) {
     putc2('\n');
 }
 
+// Return pointer to the n-th most recent history entry (0 = latest)
+static const char *hist_get(int n) {
+    if (n >= hist_cnt) return 0;
+    if (n >= HIST_SIZE) return 0;
+    int idx = (hist_idx - 1 - n + HIST_SIZE * 2) % HIST_SIZE;
+    return history[idx];
+}
+
+// Erase current line and redraw with buf content
+static void line_redraw(void) {
+    // Move to beginning of line: print \r, clear to end
+    vga_putc('\r');
+    vga_puts("os1> ");
+    for (int i = 0; i < buf_len; i++) vga_putc(buf[i]);
+    // Clear any leftover chars from previous longer line
+    for (int i = buf_len; i < MAX_BUF && i < 80; i++) vga_putc(' ');
+    vga_putc('\r');
+    vga_puts("os1> ");
+    for (int i = 0; i < buf_len; i++) vga_putc(buf[i]);
+}
+
+static void hist_load(const char *s) {
+    buf_len = 0;
+    while (*s && buf_len < MAX_BUF - 1) buf[buf_len++] = *s++;
+    buf[buf_len] = '\0';
+    line_redraw();
+}
+
 // --- Public API --------------------------------------------------------
 void shell_init(void) {
     buf_len = 0;
+    hist_pos = -1;
     shell_prompt();
 }
 
@@ -278,6 +310,39 @@ void shell_prompt(void) {
 }
 
 void shell_input(char c) {
+    // Up arrow: previous history
+    if (c == 0x82) {
+        if (hist_pos == -1) {
+            for (int i = 0; i < buf_len; i++) saved_buf[i] = buf[i];
+            saved_len = buf_len;
+            hist_pos = 0;
+        } else {
+            hist_pos++;
+        }
+        const char *h = hist_get(hist_pos);
+        if (h) hist_load(h);
+        else hist_pos--;
+        return;
+    }
+
+    // Down arrow: next history
+    if (c == 0x83) {
+        if (hist_pos > 0) {
+            hist_pos--;
+            hist_load(hist_get(hist_pos));
+        } else if (hist_pos == 0) {
+            // Back to saved line
+            hist_pos = -1;
+            buf_len = 0;
+            for (int i = 0; i < saved_len; i++) buf[buf_len++] = saved_buf[i];
+            line_redraw();
+        }
+        return;
+    }
+
+    // Other input resets history browsing
+    hist_pos = -1;
+
     if (c == '\n') {
         putc2('\n');
         if (buf_len > 0) {

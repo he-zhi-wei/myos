@@ -4,6 +4,7 @@
 #include "shell.h"
 
 static int shift = 0;
+static int e0_prefix = 0;
 
 // Scancode set 1 → ASCII (no shift)
 static const char kbd_us[128] = {
@@ -35,30 +36,33 @@ void keyboard_handler(registers_t *regs) {
     (void)regs;
     uint8_t sc = inb(0x60);
 
+    // 0xE0 has bit7 set; must check before release filter
+    if (sc == 0xE0) { e0_prefix = 1; return; }
+
     if (sc & 0x80) {
-        // Key release
         if (sc == 0xAA || sc == 0xB6) shift = 0;
         return;
     }
 
-    // Shift press
+    if (e0_prefix) {
+        e0_prefix = 0;
+        if (sc == 0x48)      { shell_input(0x82); return; }
+        else if (sc == 0x50) { shell_input(0x83); return; }
+        return;
+    }
+
     if (sc == 0x2A || sc == 0x36) { shift = 1; return; }
 
-    // Enter
     if (sc == 0x1C) { shell_input('\n'); return; }
-
-    // Backspace
     if (sc == 0x0E) { shell_input('\b'); return; }
 
-    // Lookup ASCII
     char c = shift ? kbd_us_shift[sc] : kbd_us[sc];
     if (c) shell_input(c);
 }
 
 void keyboard_init(void) {
-    // Unmask IRQ1 (keyboard) and IRQ2 (cascade to slave) on master PIC
     uint8_t mask = inb(0x21);
-    mask &= ~(1 << 1);  // clear bit 1 → enable IRQ1
-    mask &= ~(1 << 2);  // clear bit 2 → enable IRQ2 (cascade)
+    mask &= ~(1 << 1);
+    mask &= ~(1 << 2);
     outb(0x21, mask);
 }
