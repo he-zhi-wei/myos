@@ -76,3 +76,10 @@ void vga_set_cursor(int x, int y) {
 
 int vga_get_cursor_x(void) { return cursor_x; }
 int vga_get_cursor_y(void) { return cursor_y; }
+
+void vga_clear_line(int y, int from) {
+    for (int x = from; x < 80; x++) {
+        VGA_BUF[(y * 80 + x) * 2]     = ' ';
+        VGA_BUF[(y * 80 + x) * 2 + 1] = attr;
+    }
+}

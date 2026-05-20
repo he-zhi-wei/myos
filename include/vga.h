@@ -8,3 +8,4 @@ void vga_set_color(uint8_t fg, uint8_t bg);
 void vga_set_cursor(int x, int y);
 int  vga_get_cursor_x(void);
 int  vga_get_cursor_y(void);
+void vga_clear_line(int y, int from);

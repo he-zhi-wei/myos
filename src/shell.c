@@ -284,8 +284,7 @@ static void line_redraw(void) {
     vga_set_cursor(0, y);
     vga_puts("os1> ");
     for (int i = 0; i < buf_len; i++) vga_putc(buf[i]);
-    // Clear rest of line
-    for (int i = buf_len + 5; i < 80; i++) vga_putc(' ');
+    vga_clear_line(y, 5 + buf_len);
     vga_set_cursor(5 + buf_len, y);
 }
 
