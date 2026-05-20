@@ -8,8 +8,8 @@
 #include "test.h"
 #include "pmm.h"
 #include "paging.h"
+#include "timer.h"
 
-// Declared in memory.c
 void memory_init(uint32_t mb_addr);
 
 void kernel_main(unsigned int magic, unsigned int addr) {
@@ -22,6 +22,11 @@ void kernel_main(unsigned int magic, unsigned int addr) {
     irq_init();
 
     memory_init(addr);
+
+    // PIT timer at 100Hz
+    timer_init(100);
+    irq_register_handler(0, timer_handler);
+    irq_unmask(0);
 
     __asm__ volatile ("sti");
 

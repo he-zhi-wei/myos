@@ -3,6 +3,7 @@
 #include "serial.h"
 #include "port.h"
 #include "pmm.h"
+#include "timer.h"
 
 #define MAX_BUF  256
 #define MAX_ARGS 16
@@ -13,6 +14,10 @@ static int  buf_len = 0;
 // Helpers that output to both VGA and serial
 static void putc2(char c)  { vga_putc(c);  serial_putc(c); }
 static void puts2(const char *s) { vga_puts(s); serial_puts(s); }
+static void putd2(uint32_t n) {
+    if (n >= 10) putd2(n / 10);
+    putc2('0' + (n % 10));
+}
 
 // --- Command handlers -------------------------------------------------
 static void cmd_help(int argc, char **argv) {
@@ -20,6 +25,7 @@ static void cmd_help(int argc, char **argv) {
     puts2("  clear    Clear the screen\n");
     puts2("  echo     Print text\n");
     puts2("  meminfo  Show memory usage\n");
+    puts2("  uptime   Show uptime\n");
     puts2("  help     Show this help\n");
     puts2("  about    Show OS info\n");
     puts2("  shutdown Power off the system\n");
@@ -40,8 +46,18 @@ static void cmd_echo(int argc, char **argv) {
 
 static void cmd_about(int argc, char **argv) {
     (void)argc; (void)argv;
-    puts2("os1 v0.5.0\n");
+    puts2("os1 v0.6.0\n");
     puts2("A minimal 32-bit x86 OS kernel\n");
+}
+
+static void cmd_uptime(int argc, char **argv) {
+    (void)argc; (void)argv;
+    uint32_t s = timer_uptime_sec();
+    puts2("Uptime: ");
+    putd2(s);
+    puts2(" seconds (");
+    putd2(timer_ticks());
+    puts2(" ticks)\n");
 }
 
 static void cmd_shutdown(int argc, char **argv) {
@@ -49,11 +65,6 @@ static void cmd_shutdown(int argc, char **argv) {
     puts2("Shutting down...\n");
     outw(0x604, 0x2000);
     for (;;) { __asm__ volatile ("hlt"); }
-}
-
-static void putd2(uint32_t n) {
-    if (n >= 10) putd2(n / 10);
-    putc2('0' + (n % 10));
 }
 
 static void cmd_meminfo(int argc, char **argv) {
@@ -83,6 +94,7 @@ static cmd_t cmds[] = {
     {"echo",     "Print text",              cmd_echo},
     {"help",     "Show this help",          cmd_help},
     {"meminfo",  "Show memory usage",       cmd_meminfo},
+    {"uptime",   "Show uptime",             cmd_uptime},
     {"about",    "Show OS info",            cmd_about},
     {"shutdown", "Power off the system",    cmd_shutdown},
 };
