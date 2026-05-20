@@ -14,8 +14,9 @@ CORE_OBJS := boot.o kernel.o gdt.o idt.o isr.o irq.o serial.o interrupt.o \
              vga.o keyboard.o shell.o pmm.o paging.o memory.o timer.o
 TEST_OBJS := test_test.o test_isr.o test_pmm.o test_pit.o test_cmd.o
 
-BIN := kernel.bin
-ISO := kernel.iso
+BIN      := kernel.bin
+TEST_BIN := test_kernel.bin
+ISO      := kernel.iso
 
 # Default: no tests
 OBJS   := $(CORE_OBJS)
@@ -27,11 +28,18 @@ all: $(BIN)
 
 check: OBJS   := $(CORE_OBJS) $(TEST_OBJS)
 check: CFLAGS := $(BASE_CFLAGS) -DTEST -Itest
-check: clean
-	@$(MAKE) --no-print-directory all OBJS="$(OBJS)" CFLAGS="$(CFLAGS)"
-	@timeout 5 $(QEMU) -kernel $(BIN) -display none -serial null -serial file:serial.log 2>/dev/null; true
+check:
+	@rm -f $(CORE_OBJS) $(TEST_OBJS) $(TEST_BIN)
+	@$(MAKE) --no-print-directory _test_build OBJS="$(OBJS)" CFLAGS="$(CFLAGS)"
+	@timeout 5 $(QEMU) -kernel $(TEST_BIN) -display none -serial null -serial file:serial.log 2>/dev/null; true
 	@echo "=== Test Results ==="
 	@tail -3 serial.log
+	@rm -f $(TEST_BIN)
+
+_test_build: $(TEST_BIN)
+
+$(TEST_BIN): $(OBJS) linker.ld
+	@$(LD) $(LDFLAGS) -T linker.ld -o $@ $(OBJS)
 
 boot.o: $(SRCDIR)/boot.asm
 	@$(ASM) $(ASFLAGS) $< -o $@

@@ -1,5 +1,6 @@
 *.o
 kernel.bin
+test_kernel.bin
 *.iso
 *.log
 .claude/
