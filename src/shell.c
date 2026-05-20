@@ -135,8 +135,11 @@ static void cmd_bench(int argc, char **argv) {
     puts2("Loops: "); putd2(n); putc2('\n');
     puts2("Ticks: "); putd2(t2 - t1); putc2('\n');
     if (t2 > t1) {
-        puts2("Rate:  "); putd2(n / ((t2 - t1) * 10 / timer_freq()));
-        puts2(" ops/s (approx)\n");
+        puts2("Rate:  "); putd2(n * timer_freq() / (t2 - t1));
+        puts2(" ops/s\n");
+    } else {
+        puts2("Rate:  >"); putd2(n * timer_freq());
+        puts2(" ops/s (too fast to measure)\n");
     }
 }
 
