@@ -39,15 +39,18 @@ void keyboard_handler(registers_t *regs) {
     // 0xE0 has bit7 set; must check before release filter
     if (sc == 0xE0) { e0_prefix = 1; return; }
 
-    if (sc & 0x80) {
-        if (sc == 0xAA || sc == 0xB6) shift = 0;
+    // e0_prefix must also be checked before release filter,
+    // otherwise E0+0xC8 leaves e0_prefix=1 and eats the next key
+    if (e0_prefix) {
+        e0_prefix = 0;
+        if (sc & 0x80) return;  // extended key release
+        if (sc == 0x48)      { shell_input(0x82); return; }
+        else if (sc == 0x50) { shell_input(0x83); return; }
         return;
     }
 
-    if (e0_prefix) {
-        e0_prefix = 0;
-        if (sc == 0x48)      { shell_input(0x82); return; }
-        else if (sc == 0x50) { shell_input(0x83); return; }
+    if (sc & 0x80) {
+        if (sc == 0xAA || sc == 0xB6) shift = 0;
         return;
     }
 
