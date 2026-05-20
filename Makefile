@@ -34,6 +34,7 @@ check:
 	@timeout 5 $(QEMU) -kernel $(TEST_BIN) -display none -serial null -serial file:serial.log 2>/dev/null; true
 	@echo "=== Test Results ==="
 	@tail -3 serial.log
+	@rm -f $(CORE_OBJS) $(TEST_OBJS) $(TEST_BIN)
 	@rm -f $(TEST_BIN)
 
 _test_build: $(TEST_BIN)
