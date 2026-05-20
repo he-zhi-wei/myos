@@ -119,7 +119,7 @@ static void cmd_sleep(int argc, char **argv) {
     uint32_t ms = parse_dec(argv[1]);
     if (ms == 0) { puts2("0ms\n"); return; }
     uint32_t target = timer_ticks() + (ms * timer_freq() + 999) / 1000;
-    while (timer_ticks() < target) { __asm__ volatile ("hlt"); }
+    while (timer_ticks() < target) { __asm__ volatile ("sti; hlt"); }
     putc2('\n');
 }
 

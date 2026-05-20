@@ -28,7 +28,7 @@ void test_cmd_run(void) {
     serial_puts("[CMD] sleep direct 50ms...");
     uint32_t bt = timer_ticks();
     uint32_t tg = bt + (50 * timer_freq() + 999) / 1000;
-    while (timer_ticks() < tg) { __asm__ volatile ("hlt"); }
+    while (timer_ticks() < tg) { __asm__ volatile ("sti; hlt"); }
     uint32_t at2 = timer_ticks();
     test_result(at2 >= tg);
 }
