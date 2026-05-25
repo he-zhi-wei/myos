@@ -6,3 +6,6 @@ test_kernel.bin
 .claude/
 *.png
 latex/
+*.bin
+*.py
+CLAUDE.md
