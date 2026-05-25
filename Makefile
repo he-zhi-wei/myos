@@ -12,7 +12,7 @@ TESTDIR := test
 
 CORE_OBJS := boot.o kernel.o gdt.o idt.o isr.o irq.o serial.o interrupt.o \
              vga.o keyboard.o shell.o pmm.o paging.o memory.o timer.o \
-             tss.o task.o syscall.o user_embed.o
+             tss.o task.o syscall.o embed.o fs.o elf.o
 TEST_OBJS := test_test.o test_isr.o test_pmm.o test_pit.o test_cmd.o
 
 BIN      := kernel.bin
@@ -110,14 +110,18 @@ task.o: $(SRCDIR)/task.c
 
 syscall.o: $(SRCDIR)/syscall.c
 	@$(CC) $(CFLAGS) $< -o $@
+fs.o: $(SRCDIR)/fs.c
+	@$(CC) $(CFLAGS) $< -o $@
 
-user.bin: $(SRCDIR)/user.c user.ld
+user.elf: $(SRCDIR)/user.c user.ld
 	@$(CC) -m32 -c -ffreestanding -nostdlib -fno-pie -nostartfiles -nodefaultlibs $(SRCDIR)/user.c -o user.o
-	@$(LD) -m elf_i386 -T user.ld -o user.bin user.o
+	@$(LD) -m elf_i386 -T user.ld -o user.elf user.o
 	@rm -f user.o
 
-user_embed.o: user.bin
-	@objcopy -I binary -O elf32-i386 -B i386 user.bin user_embed.o
+embed.o: user.elf $(SRCDIR)/embed.asm
+	@$(ASM) -f elf32 -I. $(SRCDIR)/embed.asm -o $@
+elf.o: $(SRCDIR)/elf.c
+	@$(CC) $(CFLAGS) $< -o $@
 
 
 $(BIN): $(OBJS) linker.ld
@@ -159,4 +163,4 @@ kbdtest: $(BIN)
 	@tail -3 serial.log
 
 clean:
-	@rm -f $(CORE_OBJS) $(TEST_OBJS) $(BIN) $(ISO) user.bin user_embed.o user.o
+	@rm -f user.elf embed.o user.o user.elf

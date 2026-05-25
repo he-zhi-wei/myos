@@ -9,6 +9,7 @@ typedef struct task {
     uint32_t        user_esp;     // user stack pointer (Ring 3 tasks only)
     uint32_t        *user_stack;  // user stack base (Ring 3 tasks only)
     uint32_t        kernel_esp0;  // top of kernel stack for TSS.ESP0
+    uint32_t        *pgdir;       // page directory (NULL = share kernel)
     int             is_user;      // 1 = Ring 3, 0 = Ring 0
     uint32_t        pid;
     char            name[16];

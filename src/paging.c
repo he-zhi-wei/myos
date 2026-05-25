@@ -38,14 +38,31 @@ void paging_init(void) {
     serial_puts("Paging enabled (8MB identity-mapped).\n");
 }
 
+uint32_t *paging_clone_dir(void) {
+    uint32_t *new_dir = (uint32_t *)pmm_alloc_page();
+    if (!new_dir) return 0;
+    for (int i = 0; i < 1024; i++)
+        new_dir[i] = PAGE_DIR[i];
+    return new_dir;
+}
+
+void paging_switch_dir(uint32_t *pgdir) {
+    __asm__ volatile ("mov %0, %%cr3" : : "r"((uint32_t)pgdir) : "memory");
+}
+
 void paging_map_page(uint32_t virt, uint32_t phys, uint32_t flags) {
     uint32_t pde_idx = virt >> 22;
     uint32_t pte_idx = (virt >> 12) & 0x3FF;
 
-    // Only support first 8MB (2 page tables) for now
-    if (pde_idx > 1) return;
+    // Allocate a new page table if PDE is not present
+    if (!(PAGE_DIR[pde_idx] & PAGE_PRESENT)) {
+        uint32_t *pt = (uint32_t *)pmm_alloc_page();
+        if (!pt) return;
+        for (int i = 0; i < 1024; i++) pt[i] = 0;
+        PAGE_DIR[pde_idx] = (uint32_t)pt | PAGE_PRESENT | PAGE_RW;
+    }
 
-    // Ensure PDE has the USER bit if the PTE needs it
+    // Propagate USER bit to PDE so the whole 4MB region is user-accessible
     if (flags & PAGE_USER)
         PAGE_DIR[pde_idx] |= PAGE_USER;
 

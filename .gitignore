@@ -9,3 +9,6 @@ latex/
 *.bin
 *.py
 CLAUDE.md
+build/
+*.elf
+

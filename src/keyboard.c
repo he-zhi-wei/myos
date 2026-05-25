@@ -56,11 +56,43 @@ void keyboard_handler(registers_t *regs) {
 
     if (sc == 0x2A || sc == 0x36) { shift = 1; return; }
 
-    if (sc == 0x1C) { shell_input('\n'); return; }
+    if (sc == 0x1C) { shell_input('\n'); kb_putc('\n'); return; }
     if (sc == 0x0E) { shell_input('\b'); return; }
 
     char c = shift ? kbd_us_shift[sc] : kbd_us[sc];
-    if (c) shell_input((unsigned char)c);
+    if (c) { shell_input((unsigned char)c); kb_putc(c); }
+}
+
+// ── Keyboard buffer for user-mode SYS_READ ──────────
+#define KB_BUF_SIZE 256
+static volatile char kb_buf[KB_BUF_SIZE];
+static volatile int  kb_head = 0;  // next write position
+static volatile int  kb_tail = 0;  // next read position
+static volatile int  kb_count = 0;
+
+void kb_putc(char c) {
+    if (kb_count < KB_BUF_SIZE) {
+        kb_buf[kb_head] = c;
+        kb_head = (kb_head + 1) % KB_BUF_SIZE;
+        kb_count++;
+    }
+}
+
+int kb_getc(void) {
+    while (kb_count == 0)
+        __asm__ volatile ("sti; hlt; cli");
+    char c = kb_buf[kb_tail];
+    kb_tail = (kb_tail + 1) % KB_BUF_SIZE;
+    kb_count--;
+    return (unsigned char)c;
+}
+
+int kb_poll(void) {
+    if (kb_count == 0) return -1;
+    char c = kb_buf[kb_tail];
+    kb_tail = (kb_tail + 1) % KB_BUF_SIZE;
+    kb_count--;
+    return (unsigned char)c;
 }
 
 void keyboard_init(void) {

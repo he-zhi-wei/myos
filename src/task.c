@@ -2,6 +2,7 @@
 #include "gdt.h"
 #include "pmm.h"
 #include "tss.h"
+#include "paging.h"
 
 #define STACK_SIZE  4096
 #define MAX_TASKS   8
@@ -81,6 +82,7 @@ task_t *task_create_user(const char *name, void (*entry)(void)) {
     t->kernel_esp0  = (uint32_t)kstack + STACK_SIZE;
     t->user_esp     = (uint32_t)ustack + STACK_SIZE;
     t->user_stack   = ustack;
+    t->pgdir        = paging_clone_dir();
     t->is_user      = 1;
     t->pid          = idx;
     t->state        = TASK_READY;
@@ -132,6 +134,7 @@ task_t *task_create(const char *name, void (*entry)(void)) {
     t->kernel_esp0   = (uint32_t)stack + STACK_SIZE;
     t->user_esp      = 0;
     t->user_stack    = 0;
+    t->pgdir         = 0;
     t->is_user       = 0;
     t->pid           = idx;
     t->state         = TASK_READY;

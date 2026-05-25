@@ -56,8 +56,10 @@ void memory_init(uint32_t mb_addr) {
         }
     }
 
-    // Mark kernel + bitmap as used
-    pmm_mark_used(0x100000, bitmap_addr + bitmap_sz - 0x100000);
+    // Mark kernel and bitmap as used (up to 2MB for safety)
+    uint32_t used_end = bitmap_addr + bitmap_sz;
+    if (used_end < 0x200000) used_end = 0x200000;
+    pmm_mark_used(0x100000, used_end - 0x100000);
 
     serial_puts("RAM: ");
     put_dec(total_ram / (1024 * 1024));
