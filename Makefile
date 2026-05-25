@@ -11,7 +11,8 @@ SRCDIR  := src
 TESTDIR := test
 
 CORE_OBJS := boot.o kernel.o gdt.o idt.o isr.o irq.o serial.o interrupt.o \
-             vga.o keyboard.o shell.o pmm.o paging.o memory.o timer.o
+             vga.o keyboard.o shell.o pmm.o paging.o memory.o timer.o \
+             tss.o task.o syscall.o user_embed.o
 TEST_OBJS := test_test.o test_isr.o test_pmm.o test_pit.o test_cmd.o
 
 BIN      := kernel.bin
@@ -101,6 +102,23 @@ memory.o: $(SRCDIR)/memory.c
 
 timer.o: $(SRCDIR)/timer.c
 	@$(CC) $(CFLAGS) $< -o $@
+tss.o: $(SRCDIR)/tss.c
+	@$(CC) $(CFLAGS) $< -o $@
+
+task.o: $(SRCDIR)/task.c
+	@$(CC) $(CFLAGS) $< -o $@
+
+syscall.o: $(SRCDIR)/syscall.c
+	@$(CC) $(CFLAGS) $< -o $@
+
+user.bin: $(SRCDIR)/user.c user.ld
+	@$(CC) -m32 -c -ffreestanding -nostdlib -fno-pie -nostartfiles -nodefaultlibs $(SRCDIR)/user.c -o user.o
+	@$(LD) -m elf_i386 -T user.ld -o user.bin user.o
+	@rm -f user.o
+
+user_embed.o: user.bin
+	@objcopy -I binary -O elf32-i386 -B i386 user.bin user_embed.o
+
 
 $(BIN): $(OBJS) linker.ld
 	@$(LD) $(LDFLAGS) -T linker.ld -o $@ $(OBJS)
@@ -141,4 +159,4 @@ kbdtest: $(BIN)
 	@tail -3 serial.log
 
 clean:
-	@rm -f $(CORE_OBJS) $(TEST_OBJS) $(BIN) $(ISO)
+	@rm -f $(CORE_OBJS) $(TEST_OBJS) $(BIN) $(ISO) user.bin user_embed.o user.o

@@ -1,6 +1,6 @@
 #include "gdt.h"
 
-static gdt_entry_t gdt[3];
+static gdt_entry_t gdt[6];
 static gdt_ptr_t   gdt_ptr;
 
 static void gdt_set_entry(int idx, uint32_t base, uint32_t limit,
@@ -31,13 +31,23 @@ static void gdt_flush(uint32_t ptr) {
     );
 }
 
+void gdt_set_tss(uint32_t base, uint32_t limit) {
+    // TSS descriptor: system segment, not code/data.
+    // access = GDT_ACCESS_TSS (0x89 = P=1 DPL=0 S=0 Type=9)
+    // gran = 0 (byte granularity, TSS is never paged)
+    gdt_set_entry(GDT_TSS, base, limit, GDT_ACCESS_TSS, 0);
+}
+
 void gdt_init(void) {
     gdt_ptr.limit = sizeof(gdt) - 1;
     gdt_ptr.base  = (uint32_t)&gdt;
 
-    gdt_set_entry(GDT_NULL, 0, 0,           0, 0);
-    gdt_set_entry(GDT_CODE, 0, GDT_LIMIT_4G, GDT_ACCESS_CODE, GDT_GRAN_FLAGS);
-    gdt_set_entry(GDT_DATA, 0, GDT_LIMIT_4G, GDT_ACCESS_DATA, GDT_GRAN_FLAGS);
+    gdt_set_entry(GDT_NULL,  0, 0,           0,               0);
+    gdt_set_entry(GDT_CODE0, 0, GDT_LIMIT_4G, GDT_ACCESS_CODE0, GDT_GRAN_FLAGS);
+    gdt_set_entry(GDT_DATA0, 0, GDT_LIMIT_4G, GDT_ACCESS_DATA0, GDT_GRAN_FLAGS);
+    gdt_set_entry(GDT_CODE3, 0, GDT_LIMIT_4G, GDT_ACCESS_CODE3, GDT_GRAN_FLAGS);
+    gdt_set_entry(GDT_DATA3, 0, GDT_LIMIT_4G, GDT_ACCESS_DATA3, GDT_GRAN_FLAGS);
+    // GDT_TSS is set by tss_init() calling gdt_set_tss()
 
     gdt_flush((uint32_t)&gdt_ptr);
 }

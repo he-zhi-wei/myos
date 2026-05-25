@@ -5,3 +5,4 @@ test_kernel.bin
 *.log
 .claude/
 *.png
+latex/

@@ -84,7 +84,7 @@ isr_common:
     pusha               ; save EAX,ECX,EDX,EBX,ESP,EBP,ESI,EDI
     mov ax, ds
     push eax            ; save DS
-    mov ax, 0x10        ; load kernel data segment
+    mov ax, 0x10        ; GDT_SEL_DATA: kernel data segment (index 2, TI=0, RPL=0)
     mov ds, ax
     mov es, ax
     mov fs, ax
@@ -103,6 +103,16 @@ isr_common:
     popa                ; restore general registers
     add esp, 8          ; clean up err_code and int_no
     iret
+
+; ── System call stub (int 0x80, DPL=3) ──────────────
+; Entered from Ring 3: CPU has already pushed SS, ESP, EFLAGS, CS, EIP.
+; We push dummy err_code and int_no, then reuse isr_common → isr_handler → syscall_handler.
+global syscall_stub
+syscall_stub:
+    cli
+    push 0              ; dummy error code
+    push 0x80           ; interrupt number
+    jmp isr_common
 
 ; --- Common IRQ handler ---
 irq_common:

@@ -37,6 +37,13 @@ static const char *exceptions[] = {
 };
 
 void isr_handler(registers_t *regs) {
+    // System call dispatch
+    if (regs->int_no == 0x80) {
+        extern void syscall_handler(registers_t *);
+        syscall_handler(regs);
+        return;
+    }
+
     serial_puts("  -> CPU Exception #");
     if (regs->int_no >= 10) serial_putc('0' + regs->int_no / 10);
     serial_putc('0' + regs->int_no % 10);

@@ -32,8 +32,23 @@ void paging_init(void) {
         "mov %%eax, %%cr0\n"
         :
         : "r"((uint32_t)PAGE_DIR)
-        : "eax"
+        : "eax", "memory"
     );
 
     serial_puts("Paging enabled (8MB identity-mapped).\n");
+}
+
+void paging_map_page(uint32_t virt, uint32_t phys, uint32_t flags) {
+    uint32_t pde_idx = virt >> 22;
+    uint32_t pte_idx = (virt >> 12) & 0x3FF;
+
+    // Only support first 8MB (2 page tables) for now
+    if (pde_idx > 1) return;
+
+    // Ensure PDE has the USER bit if the PTE needs it
+    if (flags & PAGE_USER)
+        PAGE_DIR[pde_idx] |= PAGE_USER;
+
+    uint32_t *pt = (uint32_t *)(PAGE_DIR[pde_idx] & 0xFFFFF000);
+    pt[pte_idx] = (phys & 0xFFFFF000) | (flags & 0xFFF);
 }
