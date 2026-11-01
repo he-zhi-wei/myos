@@ -1,3 +1,8 @@
+// 文件：timer.c
+// 作用：PIT 定时器驱动（IRQ0），配置频率并提供 tick 与秒级计数。
+// 要点：向 PIT 通道 0 写入 1193180/freq_hz 的分频值（模式 2），kernel_main 设为 100Hz；
+//       timer_handler 只做 ticks++，timer_uptime_sec() = ticks / freq。
+
 #include "timer.h"
 #include "port.h"
 #include "isr.h"

@@ -1,3 +1,8 @@
+// 文件：pmm.c
+// 作用：位图式物理页分配器，1 位/页（0=空闲，1=占用），管理全部物理内存页。
+// 要点：位图由 memory.c 放在内核末尾之后；pmm_init 把低 1MB 标记占用，分配从 next_free 线性扫描并回绕；
+//       pmm_mark_used/free 按地址区间按页更新计数，分配的页地址同时可作 identity 映射的虚拟地址使用。
+
 #include "pmm.h"
 
 // Bitmap: 1 bit per page.  0 = free, 1 = used.

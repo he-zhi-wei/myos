@@ -1,3 +1,7 @@
+; 文件：interrupt.asm
+; 作用：提供 32 个异常 stub、16 个 IRQ stub 及统一的寄存器保存/恢复流程，转交 C 侧 isr_handler、irq_handler 与系统调用处理。
+; 要点：CPU 压错误码的异常走 ISR_ERR、其余补 push 0，保证栈帧统一；registers_t 字段顺序依赖此处 DS → pusha → int_no/err_code 的压栈次序，不得随意调整。
+; 另：IRQ n 对应 IDT 向量 32+n，int 0x80 的 syscall_stub 复用 isr_common；isr_common/irq_common 返回前用 add esp,8 丢弃 err_code 与 int_no 再 iret。
 ; ISR stub — no error code pushed by CPU
 %macro ISR_NOERR 1
 global isr%1

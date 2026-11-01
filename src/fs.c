@@ -1,3 +1,8 @@
+// 文件：fs.c
+// 作用：RamFS 内存文件系统，用 inode 链表 + 文件描述符表实现文件与标准 I/O。
+// 要点：每个文件固定两页数据（capacity = 2*PAGE_SIZE_），按文件名线性查找；
+//       fd 0/1/2 常开（0 读键盘，1/2 同时输出 VGA 与 COM2），3..MAX_FDS-1 由 fs_open 分配，读取越界自动截断。
+
 #include "fs.h"
 #include "pmm.h"
 #include "keyboard.h"

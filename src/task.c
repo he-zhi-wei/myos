@@ -1,3 +1,8 @@
+// 文件：task.c
+// 作用：任务表与上下文切换，含 _task_switch 汇编桩与 round-robin 的 schedule()，最多 8 个任务。
+// 要点：task_create 建内核态任务，task_create_user 建 Ring 3 任务并克隆页目录，每任务一页内核栈（可选一页用户栈）；
+//       调度器目前尚未接入 Ring 3 执行路径（elf_exec 仍同步运行），task_fork 只在 Ring 0 场景下可用。
+
 #include "task.h"
 #include "gdt.h"
 #include "pmm.h"
@@ -10,6 +15,7 @@
 static task_t tasks[MAX_TASKS];
 static int    task_count = 0;
 static int    cur_idx = -1;
+static int    next_pid = 1;
 
 // Assembly context switch.
 // Stack frame (from low=ESP to high):
@@ -84,7 +90,7 @@ task_t *task_create_user(const char *name, void (*entry)(void)) {
     t->user_stack   = ustack;
     t->pgdir        = paging_clone_dir();
     t->is_user      = 1;
-    t->pid          = idx;
+    t->pid          = next_pid++;
     t->state        = TASK_READY;
     t->wake_at      = 0;
 
@@ -136,7 +142,7 @@ task_t *task_create(const char *name, void (*entry)(void)) {
     t->user_stack    = 0;
     t->pgdir         = 0;
     t->is_user       = 0;
-    t->pid           = idx;
+    t->pid           = next_pid++;
     t->state         = TASK_READY;
     t->wake_at       = 0;
 
@@ -203,6 +209,95 @@ void task_sleep_ms(uint32_t ms) {
     tasks[cur_idx].wake_at = timer_ticks() + (ms * timer_freq()) / 1000;
     tasks[cur_idx].state = TASK_SLEEPING;
     task_yield();
+}
+
+// Fork the current task. Returns 0 in the child, child PID in the parent.
+// Called from the syscall handler — the current kernel stack has the
+// full interrupt frame from int 0x80.
+int task_fork(void) {
+    if (task_count >= MAX_TASKS) return -1;
+
+    // Bootstrap: if no task system is active, create a task_t for the
+    // current process (launched via elf_exec directly, not task_yield)
+    if (cur_idx < 0) {
+        cur_idx = task_count++;
+        task_t *t = &tasks[cur_idx];
+        uint32_t esp_now;
+        __asm__ volatile ("mov %%esp, %0" : "=r"(esp_now));
+        t->pid       = next_pid++;
+        t->state     = TASK_RUNNING;
+        t->is_user   = 1;
+        t->pgdir     = 0;  // initially no page dir
+        t->user_stack = 0;
+        t->stack      = (uint32_t *)(esp_now & 0xFFFFF000);  // guess: 4KB page
+        t->esp        = esp_now;
+        t->kernel_esp0 = (uint32_t)t->stack + STACK_SIZE;
+        for (int j = 0; j < 4; j++) t->name[j] = "user"[j];
+        t->name[4] = 0;
+    }
+
+    task_t *parent = &tasks[cur_idx];
+    int      cpid  = next_pid++;
+    int      idx   = task_count++;
+
+    task_t *child  = &tasks[idx];
+
+    // Allocate and copy kernel stack
+    uint32_t *kstack = (uint32_t *)pmm_alloc_page();
+    if (!kstack) { task_count--; return -1; }
+    uint32_t *kchild = (uint32_t *)((uint32_t)kstack + STACK_SIZE);
+
+    // Copy parent's kernel stack frame (from current ESP to stack top)
+    uint32_t parent_esp;
+    __asm__ volatile ("mov %%esp, %0" : "=r"(parent_esp));
+    uint32_t stack_top = (uint32_t)parent->stack + STACK_SIZE;
+    uint32_t frame_sz  = stack_top - parent_esp;
+
+    if (frame_sz > STACK_SIZE) { task_count--; return -1; }
+
+    uint32_t *ksrc  = (uint32_t *)parent_esp;
+    for (uint32_t i = 0; i < frame_sz / 4; i++)
+        kchild[i - frame_sz/4] = ksrc[i];  // copy to same relative position
+
+    // Set child's EAX return value to 0 (at the pusha eax slot)
+    // Frame layout: ds(0), edi(1), esi(2), ebp(3), saved_esp(4), ebx(5),
+    //               edx(6), ecx(7), eax(8), ret(9), err(10), intno(11),
+    //               eip(12), cs(13), eflags(14)
+    int eax_off = -((int)(frame_sz / 4)) + 8;  // offset from stack top to eax
+    kchild[eax_off] = 0;  // child returns 0
+
+    uint32_t *ustack = 0;
+    if (parent->user_stack) {
+        // Allocate and copy user stack
+        ustack = (uint32_t *)pmm_alloc_page();
+        if (!ustack) { task_count--; return -1; }
+        uint32_t *usrc  = parent->user_stack;
+        for (int i = 0; i < (int)(STACK_SIZE / 4); i++)
+            ustack[i] = usrc[i];
+    }
+
+    // Clone page directory
+    uint32_t *pgdir;
+    if (parent->pgdir)
+        pgdir = paging_clone_dir();
+    else
+        pgdir = paging_clone_dir();  // clone current CR3
+
+    child->esp          = (uint32_t)&kchild[-((int)(frame_sz / 4))];
+    child->stack         = kstack;
+    child->kernel_esp0   = (uint32_t)kstack + STACK_SIZE;
+    child->user_esp      = ustack ? (uint32_t)ustack + STACK_SIZE : 0;
+    child->user_stack    = ustack;
+    child->pgdir         = pgdir;
+    child->is_user       = parent->is_user;
+    child->pid           = cpid;
+    child->state         = TASK_READY;
+    child->wake_at       = 0;
+    for (int j = 0; j < 15 && parent->name[j]; j++)
+        child->name[j] = parent->name[j];
+    child->name[15] = '\0';
+
+    return cpid;  // parent gets child PID
 }
 
 void task_exit(void) {

@@ -1,3 +1,8 @@
+// 文件：syscall.c
+// 作用：int 0x80 系统调用分发，按 eax 编号查 table[] 调用对应处理函数（共 17 个）。
+// 要点：参数经 ebx/ecx/edx 传入、从 registers_t 读出；SYS_EXIT 调 elf_exit_to_kernel() 回到内核；
+//       SYS_FORK 在用户态运行中恒返回 -1（调度器尚不能恢复用户程序），SYS_WAIT 直接返回 0。
+
 #include "isr.h"
 #include "vga.h"
 #include "serial.h"
@@ -23,25 +28,19 @@
 #define SYS_CLOSE    12
 #define SYS_SEEK     13
 #define SYS_EXEC     14
-#define SYS_MAX      15
-
-// Return context for SYS_EXIT
-extern uint32_t ret_eip, ret_cs, ret_eflags;
+#define SYS_FORK     15
+#define SYS_WAIT     16
+#define SYS_MAX      17
 
 // ── Handlers ─────────────────────────────────────────
 
+// Terminate the Ring 3 program: restore the kernel context saved by elf_exec()
+// (its loader frees the user image and returns to whoever called it).
 static void sys_exit(registers_t *r) {
     (void)r;
-    __asm__ volatile (
-        "push %[eflags]\n"
-        "push %[cs]\n"
-        "push %[eip]\n"
-        "iret\n"
-        :
-        : [eflags] "r"(ret_eflags), [cs] "r"(ret_cs), [eip] "r"(ret_eip)
-        : "memory"
-    );
-    __builtin_unreachable();
+    elf_exit_to_kernel();
+    // No user program was active — nothing to return to.
+    for (;;) { __asm__ volatile ("cli; hlt"); }
 }
 
 // Write to fd (1=stdout, 2=stderr → VGA+serial; 3+ → file)
@@ -52,15 +51,20 @@ static void sys_write(registers_t *r) {
 // Read from fd (0=stdin → keyboard; 3+ → file)
 static void sys_read(registers_t *r) {
     if (r->ebx == 0) {
-        // stdin: read one char at a time, return newline-terminated line
+        // stdin: read with echo (backspace support)
         char *buf = (char *)r->ecx;
         uint32_t max = r->edx;
         if (max == 0) { r->eax = 0; return; }
-        uint32_t i;
-        for (i = 0; i < max - 1; i++) {
+        uint32_t i = 0;
+        while (i < max - 1) {
             int ch = kb_getc();
-            buf[i] = (char)ch;
-            if (ch == '\n') { i++; break; }
+            if (ch == '\n') { buf[i++] = '\n'; vga_putc('\n'); break; }
+            if (ch == '\b') {
+                if (i > 0) { i--; vga_putc('\b'); }
+                continue;
+            }
+            buf[i++] = (char)ch;
+            vga_putc((char)ch);
         }
         buf[i] = '\0';
         r->eax = i;
@@ -118,7 +122,19 @@ static void sys_seek(registers_t *r) {
 
 static void sys_exec(registers_t *r) {
     const char *name = (const char *)r->ebx;
-    r->eax = elf_exec(name);  // never returns on success
+    r->eax = elf_exec(name);
+}
+
+static void sys_fork(registers_t *r) {
+    // The task scheduler cannot resume a running user program yet; report
+    // failure instead of corrupting the task table.
+    if (elf_in_user_mode()) { r->eax = -1; return; }
+    r->eax = task_fork();  // 0 = child, >0 = parent (child PID)
+}
+
+static void sys_wait(registers_t *r) {
+    (void)r;
+    r->eax = 0;
 }
 
 // ── Table ────────────────────────────────────────────
@@ -140,6 +156,8 @@ static syscall_fn table[SYS_MAX] = {
     [SYS_CLOSE]    = sys_close,
     [SYS_SEEK]     = sys_seek,
     [SYS_EXEC]     = sys_exec,
+    [SYS_FORK]     = sys_fork,
+    [SYS_WAIT]     = sys_wait,
 };
 
 void syscall_handler(registers_t *regs) {

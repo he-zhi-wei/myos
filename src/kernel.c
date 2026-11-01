@@ -1,3 +1,8 @@
+// 文件：kernel.c
+// 作用：内核 C 入口 kernel_main，依次初始化各子系统并进入空闲循环。
+// 要点：顺序为 gdt→tss→fs→idt→irq→memory→timer→keyboard→shell；先把 embed.asm 内嵌的 user ELF 写入 RamFS 的 "init"；
+//       -DTEST 时先跑 run_all_tests()，最后 sti 开中断并停在本文件的 for(;;) 。
+
 #include "gdt.h"
 #include "idt.h"
 #include "irq.h"
@@ -20,9 +25,6 @@ void memory_init(uint32_t mb_addr);
 extern uint8_t user_bin_start[];
 extern uint8_t user_bin_end[];
 
-// Return context for SYS_EXIT — saved before launching first user task
-uint32_t ret_eip, ret_cs, ret_eflags;
-
 void kernel_main(unsigned int magic, unsigned int addr) {
     vga_clear();
     vga_puts("Hello, OS World!\n");
@@ -37,7 +39,7 @@ void kernel_main(unsigned int magic, unsigned int addr) {
 
     // Load the embedded user binary into RamFS so it can be exec'd later
     {
-        int fd = fs_open("user_prog", 1);
+        int fd = fs_open("init", 1);
         uint32_t sz = (uint32_t)user_bin_end - (uint32_t)user_bin_start;
         if (fd >= 0 && sz > 0) {
             fs_write(fd, (const char *)user_bin_start, sz);
@@ -57,17 +59,6 @@ void kernel_main(unsigned int magic, unsigned int addr) {
 #ifdef TEST
     run_all_tests();
 #endif
-
-    // Launch the first user program from RamFS.
-    // elf_exec never returns on success — SYS_EXIT brings us back here.
-    ret_eflags = 0x202;
-    ret_cs     = GDT_SEL_CODE0;
-    __asm__ volatile ("movl $1f, %0" : "=r"(ret_eip));
-    if (elf_exec("user_prog") < 0) {
-        vga_puts("[exec user_prog failed]\n");
-        serial_puts("[exec user_prog failed]\n");
-    }
-    __asm__ volatile ("1:");   // SYS_EXIT returns here
 
     keyboard_init();
     irq_register_handler(1, keyboard_handler);

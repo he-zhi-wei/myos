@@ -1,20 +1,22 @@
+// 文件：test/pit.c
+// 作用：验证 100Hz PIT 定时器的节拍计数与 uptime 换算。
+// 要点：依赖 timer_ticks/timer_freq，用 sti; hlt 等待节拍推进。
+
 #include "test.h"
 #include "timer.h"
 
 void test_pit_run(void) {
-    serial_puts("--- Programmable Interval Timer ---\n");
+    test_section("Programmable Interval Timer");
 
-    serial_puts("[PIT] ticks > 0...");
+    TEST("PIT is programmed at 100Hz", timer_freq() == 100);
+
     uint32_t t1 = timer_ticks();
-    test_result(t1 > 0);
+    while (timer_ticks() == t1) { __asm__ volatile ("sti; hlt"); }
+    TEST("tick counter advances while idling", timer_ticks() > t1);
 
-    serial_puts("[PIT] ticks advancing...");
-    for (volatile int d = 0; d < 5000000; d++) {}
     t1 = timer_ticks();
-    while (timer_ticks() == t1) { __asm__ volatile ("hlt"); }
-    uint32_t t2 = timer_ticks();
-    test_result(t2 > t1);
+    while (timer_ticks() < t1 + 10) { __asm__ volatile ("sti; hlt"); }
+    TEST("waiting for 10 ticks counts exactly 10", timer_ticks() == t1 + 10);
 
-    serial_puts("[PIT] rate ~100Hz...");
-    test_result(t2 < 2000);
+    TEST("uptime_sec equals ticks/freq", timer_uptime_sec() == timer_ticks() / timer_freq());
 }

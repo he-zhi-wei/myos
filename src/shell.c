@@ -1,3 +1,8 @@
+// 文件：shell.c
+// 作用：内核原生 shell（Ring 0），解析命令行并直接调用内核命令表 cmds[] 中的处理函数。
+// 要点：命令含 clear/echo/meminfo/uptime/date/sleep/bench/hexdump/history/ls/cat/touch/write/edit/exec/shutdown；
+//       支持 16 条环形历史与上下方向键；shell_edit_mode 与 shell_input_suspended 用于把键盘临时让给 edit 或 Ring 3 程序。
+
 #include "shell.h"
 #include "vga.h"
 #include "serial.h"
@@ -5,6 +10,9 @@
 #include "pmm.h"
 #include "timer.h"
 #include "types.h"
+#include "fs.h"
+#include "keyboard.h"
+#include "elf.h"
 
 #define MAX_BUF   256
 #define MAX_ARGS  16
@@ -62,16 +70,28 @@ static void cmd_help(int argc, char **argv) {
     puts2("  bench    Benchmark N loops\n");
     puts2("  hexdump  Hex dump memory\n");
     puts2("  history  Show command history\n");
+    puts2("  ls       List files in RamFS\n");
+    puts2("  cat      Print file contents\n");
+    puts2("  write    Write text to a file\n");
+    puts2("  edit     Edit a file (line mode)\n");
+    puts2("  exec     Run an ELF program in Ring 3\n");
+    puts2("  touch    Create an empty file\n");
     puts2("  help     Show this help\n");
     puts2("  about    Show OS info\n");
     puts2("  shutdown Power off the system\n");
 }
-
+        
+// 文件：shell.c
+// 作用：内核命令行 shell 的 clear 命令，清空屏幕。
+// 要点：无。
 static void cmd_clear(int argc, char **argv) {
     (void)argc; (void)argv;
     vga_clear();
 }
 
+// 文件：shell.c
+// 作用：内核命令行 shell 的 echo 命令，打印命令行参数。
+// 要点：跳过 argv[0]（命令名），用空格分隔参数，最后打印换行符。
 static void cmd_echo(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {
         if (i > 1) putc2(' ');
@@ -80,11 +100,17 @@ static void cmd_echo(int argc, char **argv) {
     putc2('\n');
 }
 
+// 文件：shell.c
+// 作用：内核命令行 shell 的 about 命令，显示 OS 版本和内核信息。
+// 要点：无。
 static void cmd_about(int argc, char **argv) {
     (void)argc; (void)argv;
     puts2("os1 v0.6.0\nA minimal 32-bit x86 OS kernel\n");
 }
 
+// 文件：shell.c
+// 作用：内核命令行 shell 的 uptime 命令，显示系统运行时间（秒数和时钟周期数）。
+// 要点：timer_uptime_sec 获取系统运行时间（秒数），timer_ticks 获取当前时间戳（时钟周期数），timer_freq 获取时钟频率。
 static void cmd_uptime(int argc, char **argv) {
     (void)argc; (void)argv;
     uint32_t s = timer_uptime_sec();
@@ -94,6 +120,9 @@ static void cmd_uptime(int argc, char **argv) {
 
 static uint8_t bcd2bin(uint8_t b) { return (b & 0x0F) + ((b >> 4) * 10); }
 
+// 文件：shell.c
+// 作用：内核命令行 shell 的 date 命令，显示当前日期和时间。
+// 要点：从 CMOS 实时时钟读取秒、分、时、日、月、年，转换为 BCD 码后输出。
 static void cmd_date(int argc, char **argv) {
     (void)argc; (void)argv;
     outb(0x70, 0x00); uint8_t sec  = inb(0x71);
@@ -104,11 +133,16 @@ static void cmd_date(int argc, char **argv) {
     outb(0x70, 0x09); uint8_t year = inb(0x71);
 
     puts2("20"); putd2(bcd2bin(year)); putc2('-');
-    if (bcd2bin(mon) < 10) putc2('0'); putd2(bcd2bin(mon)); putc2('-');
-    if (bcd2bin(day) < 10) putc2('0'); putd2(bcd2bin(day)); putc2(' ');
-    if (bcd2bin(hour) < 10) putc2('0'); putd2(bcd2bin(hour)); putc2(':');
-    if (bcd2bin(min) < 10) putc2('0'); putd2(bcd2bin(min)); putc2(':');
-    if (bcd2bin(sec) < 10) putc2('0'); putd2(bcd2bin(sec)); putc2('\n');
+    if (bcd2bin(mon) < 10)  { putc2('0'); }
+    putd2(bcd2bin(mon)); putc2('-');
+    if (bcd2bin(day) < 10)  { putc2('0'); }
+    putd2(bcd2bin(day)); putc2(' ');
+    if (bcd2bin(hour) < 10) { putc2('0'); }
+    putd2(bcd2bin(hour)); putc2(':');
+    if (bcd2bin(min) < 10)  { putc2('0'); }
+    putd2(bcd2bin(min)); putc2(':');
+    if (bcd2bin(sec) < 10)  { putc2('0'); }
+    putd2(bcd2bin(sec)); putc2('\n');
 }
 
 static uint32_t parse_dec(const char *s) {
@@ -119,7 +153,9 @@ static uint32_t parse_dec(const char *s) {
     }
     return v;
 }
-
+// 文件：shell.c
+// 作用：内核命令行 shell 的 sleep 命令，使当前进程暂停指定毫秒数。
+// 要点：parse_dec 解析命令行参数为十进制整数，timer_ticks 获取当前时间戳，timer_freq 获取时钟频率。
 static void cmd_sleep(int argc, char **argv) {
     if (argc < 2) { puts2("Usage: sleep <ms>\n"); return; }
     uint32_t ms = parse_dec(argv[1]);
@@ -129,6 +165,9 @@ static void cmd_sleep(int argc, char **argv) {
     putc2('\n');
 }
 
+// 文件：shell.c
+// 作用：内核命令行 shell 的 bench 命令，测试 CPU 性能。
+// 要点：parse_dec 解析命令行参数为十进制整数，timer_ticks 获取当前时间戳，timer_freq 获取时钟频率。
 static void cmd_bench(int argc, char **argv) {
     if (argc < 2) { puts2("Usage: bench <count>\n"); return; }
     uint32_t n = parse_dec(argv[1]);
@@ -152,6 +191,9 @@ static void cmd_bench(int argc, char **argv) {
     }
 }
 
+// 文件：shell.c
+// 作用：内核命令行 shell 的 hexdump 命令，以十六进制格式转储内存内容。
+// 要点：parse_hex 解析命令行参数为十六进制整数，addr &= ~0xF 对齐到 16 字节边界。
 static void cmd_hexdump(int argc, char **argv) {
     uint32_t addr = 0;
     if (argc >= 2) {
@@ -179,6 +221,9 @@ static void cmd_hexdump(int argc, char **argv) {
     }
 }
 
+// 文件：shell.c
+// 作用：内核命令行 shell 的 history 命令，显示命令历史记录。
+// 要点：hist_cnt 为历史记录数量，hist_idx 为当前记录索引，history 为历史记录数组。
 static void cmd_history(int argc, char **argv) {
     (void)argc; (void)argv;
     int start = hist_cnt >= HIST_SIZE ? (hist_idx + 1) % HIST_SIZE : 0;
@@ -188,6 +233,9 @@ static void cmd_history(int argc, char **argv) {
     }
 }
 
+// 文件：shell.c
+// 作用：内核命令行 shell 的 meminfo 命令，显示物理内存信息（总页数、已用页数、空闲页数）。
+// 要点：pmm_total_pages 获取总页数，pmm_free_pages 获取空闲页数，计算已用页数。
 static void cmd_meminfo(int argc, char **argv) {
     (void)argc; (void)argv;
     uint32_t total = pmm_total_pages();
@@ -206,6 +254,148 @@ static void cmd_shutdown(int argc, char **argv) {
     puts2("Shutting down...\n");
     outw(0x604, 0x2000);
     for (;;) { __asm__ volatile ("hlt"); }
+}
+
+// 文件：shell.c
+// 作用：内核命令行 shell 的初始化、逐字符输入与提示符接口，供键盘中断和主循环驱动。
+// 文件：shell.c
+// 作用：内核命令行 shell 的 ls 命令，列出当前目录下的文件和子目录。
+// 要点：shell_input 接收单个按键而非整行；shell_input_suspended 非 0 表示 Ring 3 程序独占键盘，shell 不得消费按键，退出用户程序后再恢复。
+static void cmd_ls(int argc, char **argv) {
+    (void)argc; (void)argv;
+    fs_list(puts2);
+}
+
+// 文件：shell.c
+// 作用：执行用户 ELF 程序（Ring 3），加载到内存并跳转执行。
+// 要点：argv[1] 为程序路径，elf_exec 返回值为程序退出码；若失败，打印错误信息并返回。
+static void cmd_exec(int argc, char **argv) {
+    if (argc < 2) { puts2("Usage: exec <file>\n"); return; }
+    int rc = elf_exec(argv[1]);
+    if (rc < 0) {
+        puts2("exec: cannot run ");
+        puts2(argv[1]);
+        putc2('\n');
+        return;
+    }
+    puts2("exec: program exited with code ");
+    putd2(rc);
+    putc2('\n');
+}
+
+// 文件：shell.c
+// 作用：内核命令行 shell 的 cat 命令，读取文件内容并打印到屏幕。
+// 要点：argv[1] 为文件名，fs_open 打开文件，fs_read 读取文件内容，fs_close 关闭文件。
+static void cmd_cat(int argc, char **argv) {
+    if (argc < 2) { puts2("cat: missing filename\n"); return; }
+    int fd = fs_open(argv[1], 0);
+    if (fd < 0) { puts2("cat: file not found\n"); return; }
+    char buf[256];
+    int n;
+    while ((n = fs_read(fd, buf, sizeof(buf) - 1)) > 0) {
+        buf[n] = 0;
+        puts2(buf);
+    }
+    fs_close(fd);
+}
+
+// Set by cmd_edit to suppress shell_input while edit is active.
+int shell_edit_mode = 0;
+
+// Set while a Ring 3 program owns the keyboard (see elf.c).
+int shell_input_suspended = 0;
+
+// Read lines until Ctrl+S (0x13) is pressed. Sets shell_input_suspended
+// so keyboard_handler doesn't also feed shell_input.
+static int shell_edit_lines(char *out, int max) {
+    int total = 0;
+    out[0] = 0;
+    shell_input_suspended = 1;
+    kb_flush();  // discard leftover chars from the command line
+    char line[256];
+    for (;;) {
+        int i = 0;
+        for (;;) {
+            int c = kb_getc();
+            if (c == 0x13) { out[total] = 0; shell_input_suspended = 0; return 1; }
+            if (c == '\n') break;
+            if (c == '\b') {
+                if (i > 0) { i--; vga_putc('\b'); }
+                continue;
+            }
+            if (i < (int)sizeof(line) - 1) {
+                line[i++] = (char)c;
+                vga_putc((char)c);
+            }
+        }
+        line[i] = 0;
+        vga_putc('\n');
+        int len = 0; while (line[len]) len++;
+        if (total + len + 1 >= max) break;
+        for (int j = 0; j < len; j++) out[total++] = line[j];
+        out[total++] = '\n';
+    }
+    out[total] = 0;
+    shell_input_suspended = 0;
+    return 1;
+}
+
+// 文件：shell.c
+// 作用：内核命令行 shell 的 touch 命令，创建或截断文件（若已存在）。
+// 要点：argv[1] 为文件名，fs_open 以写模式打开文件，若成功则关闭文件（截断），并打印成功信息。
+static void cmd_touch(int argc, char **argv) {
+    if (argc < 2) { puts2("touch: missing filename\n"); return; }
+    int fd = fs_open(argv[1], 1);
+    if (fd >= 0) fs_close(fd);
+    puts2(argv[1]); puts2(" created\n");
+}
+
+static void cmd_write(int argc, char **argv) {
+    if (argc < 3) { puts2("write: file text...\n"); return; }
+    int fd = fs_open(argv[1], 1);
+    if (fd < 0) { puts2("write: cannot open file\n"); return; }
+    // Build text in buffer, write once
+    char buf[512]; int len = 0;
+    for (int i = 2; i < argc && len < 500; i++) {
+        for (char *p = argv[i]; *p && len < 500; p++) buf[len++] = *p;
+        if (i < argc - 1 && len < 500) buf[len++] = ' ';
+    }
+    buf[len++] = '\n';
+    fs_write(fd, buf, len);
+    fs_close(fd);
+    puts2("written.\n");
+}
+
+// 文件：shell.c
+// 作用：内核命令行 shell 的编辑功能，允许用户编辑文件内容。
+// 要点：编辑模式下，shell_input 不消费按键，而是把它们直接输出到 VGA 并保存到缓冲区；
+//       编辑完成后，Ctrl+S 保存文件并退出编辑模式。
+static void cmd_edit(int argc, char **argv) {
+    if (argc < 2) { puts2("edit: missing filename\n"); return; }
+
+    vga_putc('\n');  // start on a fresh line
+    int fd = fs_open(argv[1], 0);
+    if (fd >= 0) {
+        puts2("--- current content ---\n");
+        char buf[256];
+        int n;
+        while ((n = fs_read(fd, buf, sizeof(buf) - 1)) > 0) {
+            buf[n] = 0; puts2(buf);
+        }
+        fs_close(fd);
+    }
+    puts2("--- enter text, Ctrl+S to save ---\n");
+
+    char new_content[4096];
+    shell_edit_lines(new_content, sizeof(new_content));
+
+    int len = 0; while (new_content[len]) len++;
+
+    fd = fs_open(argv[1], 1);
+    if (fd < 0) { puts2("edit: cannot open file\n"); return; }
+    fs_write(fd, new_content, len);
+    fs_close(fd);
+    puts2("saved.\n");
 }
 
 // --- Command table ----------------------------------------------------
@@ -229,6 +419,12 @@ static cmd_t cmds[] = {
     {"history",  "Show command history",    cmd_history},
     {"help",     "Show this help",          cmd_help},
     {"about",    "Show OS info",            cmd_about},
+    {"ls",       "List files in RamFS",     cmd_ls},
+    {"cat",      "Print file contents",     cmd_cat},
+    {"touch",    "Create an empty file",    cmd_touch},
+    {"write",    "Write text to a file",    cmd_write},
+    {"edit",     "Edit a file (line mode)", cmd_edit},
+    {"exec",     "Run an ELF program",      cmd_exec},
     {"shutdown", "Power off the system",    cmd_shutdown},
 };
 #define NUM_CMDS (sizeof(cmds) / sizeof(cmd_t))
@@ -295,7 +491,10 @@ static void hist_load(const char *s) {
     line_redraw();
 }
 
-// --- Public API --------------------------------------------------------
+// 文件：shell.c
+// 作用：内核命令行 shell 的初始化、逐字符输入与提示符接口，供键盘中断和主循环驱动。
+// 要点：shell_input 接收单个按键而非整行；shell_input_suspended 非 0 表示 Ring 3 程序独占键盘，shell 不得消费按键，退出用户程序后再恢复。
+//  --- Public API --------------------------------------------------------
 void shell_init(void) {
     buf_len = 0;
     hist_pos = -1;

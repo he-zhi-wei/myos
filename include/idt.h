@@ -1,3 +1,6 @@
+// 文件：idt.h
+// 作用：定义 IDT 门描述符、标志位与 256 项门表接口，供 idt_init 注册异常、IRQ 与系统调用入口。
+// 要点：中断门 0x8E 会自动清 IF，陷阱门 0x8F 不清；向量 0x80 的系统调用必须用 DPL=3 的 0xEE 门，否则 Ring 3 触发会产生 GP 异常。
 #pragma once
 #include "types.h"
 

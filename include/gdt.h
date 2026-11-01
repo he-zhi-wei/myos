@@ -1,3 +1,7 @@
+// 文件：gdt.h
+// 作用：定义 GDT 段选择子、访问权限宏与描述符结构，供 gdt_init 建立 Ring0/Ring3 代码数据段及 TSS 描述符。
+// 要点：选择子 = 索引<<3 | RPL，CODE0=0x08、DATA0=0x10、CODE3=0x1B、DATA3=0x23、TSS=0x28；访问字节 0x9A/0x92/0xFA/0xF2，TSS 为 0x89。
+// 注意：gdt_entry_t 与 gdt_ptr_t 必须 packed，否则装载 GDTR 时偏移错位。
 #pragma once
 #include "types.h"
 

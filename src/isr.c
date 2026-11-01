@@ -1,3 +1,8 @@
+// 文件：isr.c
+// 作用：CPU 异常处理入口，并负责把 int 0x80 转交给系统调用分发器。
+// 要点：int_no==0x80 时调用 syscall_handler；其余按 exceptions[32] 表向 COM2 打印异常名；
+//       只有双故障(8)与机器检查(18)死循环挂起，其他异常打印后返回继续执行。
+
 #include "isr.h"
 #include "serial.h"
 

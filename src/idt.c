@@ -1,3 +1,8 @@
+// 文件：idt.c
+// 作用：构建并加载中断描述符表 IDT，把 32 个异常、16 个 IRQ 和 int 0x80 门挂到汇编桩上。
+// 要点：isr0..31 占向量 0..31，irq0..15 占向量 32..47（PIC 重映射后的偏移）；
+//       0x80 门使用 IDT_GATE_USER_INT（DPL=3），否则 Ring 3 无法执行 int $0x80。
+
 #include "idt.h"
 #include "gdt.h"
 #include "port.h"

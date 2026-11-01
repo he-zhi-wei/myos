@@ -1,3 +1,8 @@
+// 文件：memory.c
+// 作用：内存子系统初始化，解析 Multiboot 信息并据此初始化 PMM 和分页。
+// 要点：从 mmap 求最高可用地址，位图紧挨 _kernel_end 之后放置；低 1MB、非 RAM 区间与内核/位图区标记占用；
+//       最后调用 paging_init() 建立 8MB identity 映射，并把 RAM/空闲大小打印到 COM2。
+
 #include "multiboot.h"
 #include "pmm.h"
 #include "paging.h"

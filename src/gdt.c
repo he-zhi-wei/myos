@@ -1,3 +1,8 @@
+// 文件：gdt.c
+// 作用：构建并加载全局描述符表 GDT，提供内核/用户态代码段、数据段与 TSS 描述符。
+// 要点：gdt[6] 含 null、CODE0/DATA0、CODE3/DATA3，TSS 槽由 tss_init() 调 gdt_set_tss() 填写；
+//       所有段基址为 0、limit 4G（平坦模型），gdt_flush() 用 lgdt + 远跳转重载 CS。
+
 #include "gdt.h"
 
 static gdt_entry_t gdt[6];

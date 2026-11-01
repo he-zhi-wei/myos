@@ -1,3 +1,8 @@
+// 文件：irq.c
+// 作用：IRQ 框架，重映射 8259A PIC 并把硬件中断分发到注册的处理函数。
+// 要点：IRQ0..15 映射到向量 32..47，handlers[16] 由 irq_register_handler 填充；
+//       irq_handler() 先发 EOI（irq>=8 时主/从片都发）再回调，当前只注册了 timer(0) 与 keyboard(1)。
+
 #include "irq.h"
 #include "port.h"
 

@@ -1,5 +1,9 @@
 // Ring 3 user program — demonstrates syscalls + file I/O.
 
+// 文件：user.c
+// 作用：早期的 Ring 3 演示程序（_start 入口），自测 uname、文件 I/O、fork 与 exec 链路。
+// 要点：仅通过 int 0x80 访问内核；当前不参与构建（Makefile 只编译 init.c 为 init.elf），仅作参考保留。
+
 #define SYS_EXIT     0
 #define SYS_WRITE    1
 #define SYS_READ     2
@@ -15,6 +19,8 @@
 #define SYS_CLOSE    12
 #define SYS_SEEK     13
 #define SYS_EXEC     14
+#define SYS_FORK     15
+#define SYS_WAIT     16
 
 #define FD_STDIN  0
 #define FD_STDOUT 1
@@ -83,8 +89,29 @@ void _start(void) {
     }
 
     // ── stdin demo ────────────────────────
+    // ── Test SYS_FORK ───────────────────────────────
+    print("\n[fork demo] ");
+    int pid = sys0(SYS_FORK);
+    if (pid < 0) {
+        print("fork failed!\n");
+    } else if (pid == 0) {
+        print("child here! PID="); print_int(sys0(SYS_GETPID));
+        print(" parent="); print_int(pid); print("\n");
+        // Child: do file I/O with its own fd
+        int cfd = sys3(SYS_OPEN, (int)"child.txt", 1, 0);
+        if (cfd >= 0) {
+            sys3(SYS_WRITE, cfd, (int)"written by child\n", 16);
+            sys3(SYS_CLOSE, cfd, 0, 0);
+        }
+        sys0(SYS_EXIT);
+    } else {
+        print("parent here! child PID="); print_int(pid);
+        print(" my PID="); print_int(sys0(SYS_GETPID)); print("\n");
+        sys1(SYS_WAIT, 0);
+        print("child done\n");
+    }
+
     // ── Test SYS_EXEC once ───────────────────────────
-    // exec replaces current process; mark with a file to avoid looping
     print("\n[exec demo]\n");
     int marker = sys3(SYS_OPEN, (int)"_exec_done", 0, 0);
     if (marker < 0) {

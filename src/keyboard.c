@@ -1,10 +1,23 @@
+// 文件：keyboard.c
+// 作用：PS/2 键盘驱动（IRQ1），把扫描码 set 1 翻译成 ASCII 并分发或缓冲。
+// 要点：处理 shift/ctrl 与 0xE0 前缀（方向键上/下映射为 0x82/0x83）；输入归属由 shell_edit_mode 与 shell_input_suspended 决定；
+//       kb_buf 是 256 字节环形缓冲，供 SYS_READ 的 kb_getc 阻塞读取（sti; hlt; cli）。
+
 #include "keyboard.h"
 #include "port.h"
 #include "isr.h"
 #include "shell.h"
 
 static int shift = 0;
+static int ctrl = 0;
 static int e0_prefix = 0;
+
+extern int shell_edit_mode;
+
+// Keyboard goes to the shell only when neither edit mode nor Ring 3 owns it.
+static int shell_owns_input(void) {
+    return !shell_edit_mode && !shell_input_suspended;
+}
 
 // Scancode set 1 → ASCII (no shift)
 static const char kbd_us[128] = {
@@ -43,24 +56,30 @@ void keyboard_handler(registers_t *regs) {
     // otherwise E0+0xC8 leaves e0_prefix=1 and eats the next key
     if (e0_prefix) {
         e0_prefix = 0;
-        if (sc & 0x80) return;  // extended key release
-        if (sc == 0x48)      { shell_input(0x82); return; }
-        else if (sc == 0x50) { shell_input(0x83); return; }
+        if (sc & 0x80) return;
+        if (sc == 0x48) { if (shell_owns_input()) shell_input(0x82); return; }
+        else if (sc == 0x50) { if (shell_owns_input()) shell_input(0x83); return; }
         return;
     }
 
     if (sc & 0x80) {
         if (sc == 0xAA || sc == 0xB6) shift = 0;
+        if (sc == 0x9D) ctrl = 0;
         return;
     }
 
     if (sc == 0x2A || sc == 0x36) { shift = 1; return; }
+    if (sc == 0x1D) { ctrl = 1; return; }
 
-    if (sc == 0x1C) { shell_input('\n'); kb_putc('\n'); return; }
-    if (sc == 0x0E) { shell_input('\b'); return; }
+    if (sc == 0x1C) { if (shell_owns_input()) shell_input('\n'); kb_putc('\n'); return; }
+    if (sc == 0x0E) { if (shell_owns_input()) shell_input('\b'); kb_putc('\b'); return; }
 
     char c = shift ? kbd_us_shift[sc] : kbd_us[sc];
-    if (c) { shell_input((unsigned char)c); kb_putc(c); }
+    if (c) {
+        if (ctrl && c >= 'a' && c <= 'z') c -= 'a' - 1;
+        if (shell_owns_input()) shell_input((unsigned char)c);
+        kb_putc(c);
+    }
 }
 
 // ── Keyboard buffer for user-mode SYS_READ ──────────
@@ -93,6 +112,10 @@ int kb_poll(void) {
     kb_tail = (kb_tail + 1) % KB_BUF_SIZE;
     kb_count--;
     return (unsigned char)c;
+}
+
+void kb_flush(void) {
+    kb_head = kb_tail = kb_count = 0;
 }
 
 void keyboard_init(void) {

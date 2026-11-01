@@ -1,3 +1,6 @@
+// 文件：fs.h
+// 作用：极简 VFS + RamFS 文件接口，供 shell、ELF 加载器等读写内存文件。
+// 要点：扁平命名空间无目录，每 inode 有 4KB 数据页（超 4KB 用第二页 data2）；fd 0/1/2 固定为 stdin/stdout/stderr，3 起为文件且 MAX_FDS=16；文件名上限 FILE_NAME=28。
 // Minimal VFS + RamFS — flat namespace, no directories, one-page files.
 // Files are stored in a linked list of inodes, each with a 4KB data buffer.
 // File descriptor table: fd 0=stdin, 1=stdout, 2=stderr, 3+=files.

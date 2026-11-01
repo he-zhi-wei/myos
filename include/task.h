@@ -1,3 +1,6 @@
+// 文件：task.h
+// 作用：任务（进程）结构 task_t 与创建、fork、让出、睡眠、调度接口，供内核运行 Ring 0 与 Ring 3 任务。
+// 要点：esp 是保存的内核栈指针；user_esp/user_stack 仅 Ring 3 任务有效；kernel_esp0 用于切换 TSS.ESP0；pgdir 为 NULL 表示共享内核页目录。
 #pragma once
 #include "types.h"
 
@@ -20,6 +23,7 @@ typedef struct task {
 void task_init(void);
 task_t *task_create(const char *name, void (*entry)(void));
 task_t *task_create_user(const char *name, void (*entry)(void));
+int  task_fork(void);            // clone current task, returns PID (0=child)
 void task_yield(void);
 void task_sleep(uint32_t ms);
 void task_exit(void);

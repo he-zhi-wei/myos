@@ -1,3 +1,8 @@
+// 文件：paging.c
+// 作用：二级页表管理，负责建立 identity 映射、按需映射页与切换页目录。
+// 要点：页目录固定在 0x200000，两张页表在 0x201000/0x202000，当前只 identity map 前 8MB；
+//       paging_map_page 按需分配页表并把 USER 位上推到 PDE；paging_clone_dir 仅浅拷贝 PDE，不复制页表内容。
+
 #include "paging.h"
 #include "pmm.h"
 #include "serial.h"
